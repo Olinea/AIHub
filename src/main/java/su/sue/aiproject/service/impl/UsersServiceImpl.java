@@ -52,14 +52,22 @@ public class UsersServiceImpl extends ServiceImpl<UsersMapper, Users>
             throw new UsernameNotFoundException("User not found with email or username: " + emailOrUsername);
         }
         
-        logger.info("找到用户: {} (ID: {}), 邮箱: {}", user.getUsername(), user.getId(), user.getEmail());
+        logger.info("找到用户: {} (ID: {}), 邮箱: {}, 是否管理员: {}", user.getUsername(), user.getId(), user.getEmail(), user.getIsAdmin());
         logger.info("数据库中存储的密码哈希: {}", user.getPasswordHash() != null ? user.getPasswordHash().substring(0, 20) + "..." : "null");
+        
+        // 创建用户权限列表
+        List<org.springframework.security.core.GrantedAuthority> authorities = new ArrayList<>();
+        if (user.getIsAdmin() != null && user.getIsAdmin() == 1) {
+            authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"));
+        } else {
+            authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"));
+        }
         
         // 使用邮箱作为用户名返回，这样与前端传递的邮箱保持一致
         return new org.springframework.security.core.userdetails.User(
             user.getEmail() != null ? user.getEmail() : user.getUsername(), 
             user.getPasswordHash(), 
-            new ArrayList<>()
+            authorities
         );
     }
 

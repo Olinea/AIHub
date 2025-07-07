@@ -101,14 +101,22 @@
 
 ### 4.2. `ai_models` - AI 模型表
 
-| 字段                 | 类型             | 约束       | 描述                                    |
-| :------------------- | :--------------- | :--------- | :-------------------------------------- |
-| `id`                 | `INT`            | 主键, 自增 | 模型唯一标识                            |
-| `model_name`         | `VARCHAR(100)`   | 非空       | 模型名称 (e.g., gpt-4, claude-3-sonnet) |
-| `provider`           | `VARCHAR(50)`    | 非空       | 提供商 (e.g., OpenAI, Anthropic)        |
-| `api_endpoint`       | `VARCHAR(255)`   | 非空       | 该模型的 API 调用地址                   |
-| `cost_per_1k_tokens` | `DECIMAL(10, 6)` | 非空       | 每 1000 token 的成本（美元或积分）      |
-| `is_enabled`         | `BOOLEAN`        | 默认 true  | 是否启用                                |
+| 字段                   | 类型             | 约束       | 描述                                      |
+| :--------------------- | :--------------- | :--------- | :---------------------------------------- |
+| `id`                   | `INT`            | 主键, 自增 | 模型唯一标识                              |
+| `model_name`           | `VARCHAR(100)`   | 非空       | 模型名称 (e.g., gpt-4, claude-3-sonnet)   |
+| `provider`             | `VARCHAR(50)`    | 非空       | 提供商 (e.g., OpenAI, Anthropic)          |
+| `api_endpoint`         | `VARCHAR(255)`   | 非空       | 该模型的 API 调用地址                     |
+| `api_key`              | `VARCHAR(500)`   | 可空       | API密钥                                   |
+| `api_secret`           | `VARCHAR(500)`   | 可空       | API密钥Secret（某些厂商需要）             |
+| `organization_id`      | `VARCHAR(100)`   | 可空       | 组织ID（OpenAI等需要）                    |
+| `project_id`           | `VARCHAR(100)`   | 可空       | 项目ID（某些厂商需要）                    |
+| `extra_headers`        | `JSON`           | 可空       | 额外的请求头（JSON格式存储）              |
+| `cost_per_1k_tokens`   | `DECIMAL(10, 6)` | 非空       | 每 1000 token 的成本（美元或积分）        |
+| `rate_limit_per_minute`| `INT`            | 默认 60    | 每分钟请求限制                            |
+| `is_enabled`           | `BOOLEAN`        | 默认 true  | 是否启用                                  |
+| `created_at`           | `DATETIME`       | 非空       | 创建时间                                  |
+| `updated_at`           | `DATETIME`       | 非空       | 更新时间                                  |
 
 ### 4.3. `conversations` - 会话表
 

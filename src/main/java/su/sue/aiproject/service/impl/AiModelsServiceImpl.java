@@ -15,6 +15,12 @@ import org.springframework.stereotype.Service;
 public class AiModelsServiceImpl extends ServiceImpl<AiModelsMapper, AiModels>
     implements AiModelsService{
 
+    @Override
+    public AiModels getModelWithDecryptedKeys(Integer id) {
+        // 直接返回模型信息，无需解密
+        return this.getById(id);
+    }
+
 }
 
 

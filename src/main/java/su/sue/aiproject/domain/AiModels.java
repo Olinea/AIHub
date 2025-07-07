@@ -3,93 +3,108 @@ package su.sue.aiproject.domain;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * 
+ * AI模型实体类
  * @TableName ai_models
  */
 @TableName(value ="ai_models")
 @Data
+@Schema(description = "AI模型信息")
 public class AiModels {
     /**
-     * 
+     * 模型唯一标识
      */
     @TableId(type = IdType.AUTO)
+    @Schema(description = "模型ID", example = "1")
     private Integer id;
 
     /**
-     * 
+     * 模型名称
      */
-    private String apiEndpoint;
-
-    /**
-     * 
-     */
-    private BigDecimal costPer1kTokens;
-
-    /**
-     * 
-     */
-    private Boolean isEnabled;
-
-    /**
-     * 
-     */
+    @Schema(description = "模型名称", example = "gpt-4")
     private String modelName;
 
     /**
-     * 
+     * 提供商
      */
+    @Schema(description = "提供商", example = "OpenAI")
     private String provider;
 
-    @Override
-    public boolean equals(Object that) {
-        if (this == that) {
-            return true;
-        }
-        if (that == null) {
-            return false;
-        }
-        if (getClass() != that.getClass()) {
-            return false;
-        }
-        AiModels other = (AiModels) that;
-        return (this.getId() == null ? other.getId() == null : this.getId().equals(other.getId()))
-            && (this.getApiEndpoint() == null ? other.getApiEndpoint() == null : this.getApiEndpoint().equals(other.getApiEndpoint()))
-            && (this.getCostPer1kTokens() == null ? other.getCostPer1kTokens() == null : this.getCostPer1kTokens().equals(other.getCostPer1kTokens()))
-            && (this.getIsEnabled() == null ? other.getIsEnabled() == null : this.getIsEnabled().equals(other.getIsEnabled()))
-            && (this.getModelName() == null ? other.getModelName() == null : this.getModelName().equals(other.getModelName()))
-            && (this.getProvider() == null ? other.getProvider() == null : this.getProvider().equals(other.getProvider()));
-    }
+    /**
+     * API端点
+     */
+    @Schema(description = "API端点", example = "https://api.openai.com/v1/chat/completions")
+    private String apiEndpoint;
 
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((getId() == null) ? 0 : getId().hashCode());
-        result = prime * result + ((getApiEndpoint() == null) ? 0 : getApiEndpoint().hashCode());
-        result = prime * result + ((getCostPer1kTokens() == null) ? 0 : getCostPer1kTokens().hashCode());
-        result = prime * result + ((getIsEnabled() == null) ? 0 : getIsEnabled().hashCode());
-        result = prime * result + ((getModelName() == null) ? 0 : getModelName().hashCode());
-        result = prime * result + ((getProvider() == null) ? 0 : getProvider().hashCode());
-        return result;
-    }
+    /**
+     * API密钥
+     */
+    @Schema(description = "API密钥", example = "sk-xxxxxxxxxxxxxxxxxxxxxxxxx")
+    @TableField("api_key")
+    private String apiKey;
 
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(getClass().getSimpleName());
-        sb.append(" [");
-        sb.append("Hash = ").append(hashCode());
-        sb.append(", id=").append(id);
-        sb.append(", apiEndpoint=").append(apiEndpoint);
-        sb.append(", costPer1kTokens=").append(costPer1kTokens);
-        sb.append(", isEnabled=").append(isEnabled);
-        sb.append(", modelName=").append(modelName);
-        sb.append(", provider=").append(provider);
-        sb.append("]");
-        return sb.toString();
-    }
+    /**
+     * API密钥Secret（某些厂商需要）
+     */
+    @Schema(description = "API密钥Secret", example = "secret_xxxxxxxxxxxxxxxxx")
+    @TableField("api_secret")
+    private String apiSecret;
+
+    /**
+     * 组织ID（OpenAI等需要）
+     */
+    @TableField("organization_id")
+    private String organizationId;
+
+    /**
+     * 项目ID（某些厂商需要）
+     */
+    @TableField("project_id")
+    private String projectId;
+
+    /**
+     * 额外的请求头（JSON格式存储）
+     */
+    @TableField("extra_headers")
+    private String extraHeaders;
+
+    /**
+     * 每1000 token的成本
+     */
+    @Schema(description = "每1000 token的成本", example = "0.03")
+    private BigDecimal costPer1kTokens;
+
+    /**
+     * 每分钟请求限制
+     */
+    @Schema(description = "每分钟请求限制", example = "60")
+    @TableField("rate_limit_per_minute")
+    private Integer rateLimitPerMinute;
+
+    /**
+     * 是否启用
+     */
+    @Schema(description = "是否启用", example = "true")
+    private Boolean isEnabled;
+
+    /**
+     * 创建时间
+     */
+    @Schema(description = "创建时间")
+    @TableField("created_at")
+    private LocalDateTime createdAt;
+
+    /**
+     * 更新时间
+     */
+    @Schema(description = "更新时间")
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
+
 }

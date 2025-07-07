@@ -10,4 +10,11 @@ import com.baomidou.mybatisplus.extension.service.IService;
 */
 public interface AiModelsService extends IService<AiModels> {
 
+    /**
+     * 获取模型信息（仅供内部服务调用）
+     * @param id 模型ID
+     * @return 模型信息
+     */
+    AiModels getModelWithDecryptedKeys(Integer id);
+
 }
