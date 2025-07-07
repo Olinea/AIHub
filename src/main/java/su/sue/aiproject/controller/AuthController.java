@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import su.sue.aiproject.domain.LoginRequest;
+import su.sue.aiproject.domain.RegisterRequest;
 import su.sue.aiproject.security.JwtTokenProvider;
+import su.sue.aiproject.service.UsersService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,6 +24,9 @@ public class AuthController {
 
     @Autowired
     private JwtTokenProvider tokenProvider;
+
+    @Autowired
+    private UsersService usersService;
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
@@ -37,6 +42,21 @@ public class AuthController {
 
         String jwt = tokenProvider.generateToken(authentication);
         return ResponseEntity.ok(new JwtAuthenticationResponse(jwt));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUser(@RequestBody RegisterRequest registerRequest) {
+        if (usersService.existsByUsername(registerRequest.getUsername())) {
+            return ResponseEntity.badRequest().body("Error: Username is already taken!");
+        }
+
+        if (usersService.existsByEmail(registerRequest.getEmail())) {
+            return ResponseEntity.badRequest().body("Error: Email is already in use!");
+        }
+
+        usersService.registerUser(registerRequest);
+
+        return ResponseEntity.ok("User registered successfully!");
     }
 }
 

@@ -2,6 +2,7 @@ package su.sue.aiproject.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import su.sue.aiproject.domain.RegisterRequest;
 import su.sue.aiproject.domain.Users;
 
 /**
@@ -11,4 +12,9 @@ import su.sue.aiproject.domain.Users;
 */
 public interface UsersService extends IService<Users>, UserDetailsService {
 
+    boolean existsByUsername(String username);
+
+    boolean existsByEmail(String email);
+
+    void registerUser(RegisterRequest registerRequest);
 }
