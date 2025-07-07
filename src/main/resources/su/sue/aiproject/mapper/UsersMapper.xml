@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="su.sue.aiproject.mapper.UsersMapper">
+
+    <resultMap id="BaseResultMap" type="su.sue.aiproject.domain.Users">
+            <id property="id" column="id" />
+            <result property="createdAt" column="created_at" />
+            <result property="creditBalance" column="credit_balance" />
+            <result property="email" column="email" />
+            <result property="passwordHash" column="password_hash" />
+            <result property="updatedAt" column="updated_at" />
+            <result property="username" column="username" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,created_at,credit_balance,email,password_hash,updated_at,
+        username
+    </sql>
+</mapper>
