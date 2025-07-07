@@ -24,11 +24,13 @@ public class Users {
     /**
      * 
      */
+    @TableField("created_at")
     private Date createdAt;
 
     /**
      * 
      */
+    @TableField("credit_balance")
     private BigDecimal creditBalance;
 
     /**
@@ -39,11 +41,13 @@ public class Users {
     /**
      * 
      */
+    @TableField("password_hash")
     private String passwordHash;
 
     /**
      * 
      */
+    @TableField("updated_at")
     private Date updatedAt;
 
     /**
