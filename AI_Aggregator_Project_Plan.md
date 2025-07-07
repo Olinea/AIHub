@@ -88,15 +88,16 @@
 
 ### 4.1. `users` - 用户表
 
-| 字段名           | 类型             | 约束       | 描述         |
-| :--------------- | :--------------- | :--------- | :----------- |
-| `id`             | `BIGINT`         | 主键, 自增 | 用户唯一标识 |
-| `username`       | `VARCHAR(50)`    | 唯一, 非空 | 用户名       |
-| `password_hash`  | `VARCHAR(255)`   | 非空       | 加密后的密码 |
-| `email`          | `VARCHAR(100)`   | 唯一, 非空 | 邮箱         |
-| `credit_balance` | `DECIMAL(10, 4)` | 默认 0.00  | 用户积分余额 |
-| `created_at`     | `DATETIME`       |            | 创建时间     |
-| `updated_at`     | `DATETIME`       |            | 更新时间     |
+| 字段名           | 类型             | 约束       | 描述                              |
+| :--------------- | :--------------- | :--------- | :-------------------------------- |
+| `id`             | `BIGINT`         | 主键, 自增 | 用户唯一标识                      |
+| `username`       | `VARCHAR(50)`    | 唯一, 非空 | 用户名                            |
+| `password_hash`  | `VARCHAR(255)`   | 非空       | 加密后的密码                      |
+| `email`          | `VARCHAR(100)`   | 唯一, 非空 | 邮箱                              |
+| `credit_balance` | `DECIMAL(10, 4)` | 默认 0.00  | 用户积分余额                      |
+| `is_admin`       | `TINYINT(1)`     | 默认 0     | 是否为管理员 (0: 普通用户, 1: 管理员) |
+| `created_at`     | `DATETIME`       |            | 创建时间                          |
+| `updated_at`     | `DATETIME`       |            | 更新时间                          |
 
 ### 4.2. `ai_models` - AI 模型表
 

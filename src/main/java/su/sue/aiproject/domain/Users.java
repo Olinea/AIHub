@@ -55,6 +55,12 @@ public class Users {
      */
     private String username;
 
+    /**
+     * 是否为管理员 (0: 普通用户, 1: 管理员)
+     */
+    @TableField("is_admin")
+    private Integer isAdmin;
+
     @Override
     public boolean equals(Object that) {
         if (this == that) {
@@ -73,7 +79,8 @@ public class Users {
             && (this.getEmail() == null ? other.getEmail() == null : this.getEmail().equals(other.getEmail()))
             && (this.getPasswordHash() == null ? other.getPasswordHash() == null : this.getPasswordHash().equals(other.getPasswordHash()))
             && (this.getUpdatedAt() == null ? other.getUpdatedAt() == null : this.getUpdatedAt().equals(other.getUpdatedAt()))
-            && (this.getUsername() == null ? other.getUsername() == null : this.getUsername().equals(other.getUsername()));
+            && (this.getUsername() == null ? other.getUsername() == null : this.getUsername().equals(other.getUsername()))
+            && (this.getIsAdmin() == null ? other.getIsAdmin() == null : this.getIsAdmin().equals(other.getIsAdmin()));
     }
 
     @Override
@@ -87,6 +94,7 @@ public class Users {
         result = prime * result + ((getPasswordHash() == null) ? 0 : getPasswordHash().hashCode());
         result = prime * result + ((getUpdatedAt() == null) ? 0 : getUpdatedAt().hashCode());
         result = prime * result + ((getUsername() == null) ? 0 : getUsername().hashCode());
+        result = prime * result + ((getIsAdmin() == null) ? 0 : getIsAdmin().hashCode());
         return result;
     }
 
@@ -103,6 +111,7 @@ public class Users {
         sb.append(", passwordHash=").append(passwordHash);
         sb.append(", updatedAt=").append(updatedAt);
         sb.append(", username=").append(username);
+        sb.append(", isAdmin=").append(isAdmin);
         sb.append("]");
         return sb.toString();
     }

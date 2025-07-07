@@ -1,6 +1,7 @@
 package su.sue.aiproject.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,6 +16,7 @@ import su.sue.aiproject.service.UsersService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 // 添加日志依赖
 import org.slf4j.Logger;
@@ -78,6 +80,7 @@ public class UsersServiceImpl extends ServiceImpl<UsersMapper, Users>
         user.setPasswordHash(passwordEncoder.encode(registerRequest.getPassword()));
         user.setEmail(registerRequest.getEmail());
         user.setCreditBalance(new BigDecimal("10.00")); // 赠送10积分
+        user.setIsAdmin(0); // 默认为普通用户
         user.setCreatedAt(new Date());
         user.setUpdatedAt(new Date());
         getBaseMapper().insert(user);
@@ -86,5 +89,65 @@ public class UsersServiceImpl extends ServiceImpl<UsersMapper, Users>
     @Override
     public Users getUserByEmail(String email) {
         return getBaseMapper().selectOne(new QueryWrapper<Users>().eq("email", email));
+    }
+    
+    // 管理员相关方法实现
+    @Override
+    public Page<Users> getAllUsers(int current, int size) {
+        Page<Users> page = new Page<>(current, size);
+        return getBaseMapper().selectPage(page, new QueryWrapper<Users>().orderByDesc("created_at"));
+    }
+    
+    @Override
+    public boolean updateUserAdmin(Long userId, Integer isAdmin) {
+        try {
+            Users user = getBaseMapper().selectById(userId);
+            if (user != null) {
+                user.setIsAdmin(isAdmin);
+                user.setUpdatedAt(new Date());
+                return getBaseMapper().updateById(user) > 0;
+            }
+            return false;
+        } catch (Exception e) {
+            logger.error("更新用户管理员状态失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean updateUserCredit(Long userId, BigDecimal creditBalance) {
+        try {
+            Users user = getBaseMapper().selectById(userId);
+            if (user != null) {
+                user.setCreditBalance(creditBalance);
+                user.setUpdatedAt(new Date());
+                return getBaseMapper().updateById(user) > 0;
+            }
+            return false;
+        } catch (Exception e) {
+            logger.error("更新用户积分失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean deleteUser(Long userId) {
+        try {
+            return getBaseMapper().deleteById(userId) > 0;
+        } catch (Exception e) {
+            logger.error("删除用户失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    @Override
+    public List<Users> searchUsers(String keyword) {
+        QueryWrapper<Users> queryWrapper = new QueryWrapper<>();
+        queryWrapper.and(wrapper -> wrapper
+            .like("username", keyword)
+            .or()
+            .like("email", keyword)
+        );
+        return getBaseMapper().selectList(queryWrapper);
     }
 }

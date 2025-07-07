@@ -32,6 +32,9 @@ public class UserInfo {
     @Schema(description = "更新时间")
     private Date updatedAt;
     
+    @Schema(description = "是否为管理员 (0: 普通用户, 1: 管理员)")
+    private Integer isAdmin;
+    
     // 从Users对象创建UserInfo的静态方法
     public static UserInfo fromUsers(Users user) {
         if (user == null) {
@@ -43,7 +46,8 @@ public class UserInfo {
             user.getEmail(),
             user.getCreditBalance(),
             user.getCreatedAt(),
-            user.getUpdatedAt()
+            user.getUpdatedAt(),
+            user.getIsAdmin()
         );
     }
 }

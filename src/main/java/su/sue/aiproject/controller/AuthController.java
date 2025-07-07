@@ -1,5 +1,6 @@
 package su.sue.aiproject.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -7,23 +8,17 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import su.sue.aiproject.domain.LoginRequest;
-import su.sue.aiproject.domain.RegisterRequest;
-import su.sue.aiproject.domain.ApiResponse;
-import su.sue.aiproject.domain.JwtAuthenticationResponse;
-import su.sue.aiproject.domain.UserInfo;
-import su.sue.aiproject.domain.Users;
+import org.springframework.web.bind.annotation.*;
+import su.sue.aiproject.domain.*;
 import su.sue.aiproject.security.JwtTokenProvider;
 import su.sue.aiproject.service.UsersService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 // 添加日志依赖
 import org.slf4j.Logger;
@@ -138,6 +133,142 @@ public class AuthController {
         } catch (Exception e) {
             logger.error("获取用户信息失败: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(ApiResponse.error(500, "获取用户信息失败: " + e.getMessage()));
+        }
+    }
+    
+    // 管理员接口 - 需要检查管理员权限
+    private boolean isCurrentUserAdmin() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return false;
+            }
+            String email = authentication.getName();
+            Users user = usersService.getUserByEmail(email);
+            return user != null && user.getIsAdmin() != null && user.getIsAdmin() == 1;
+        } catch (Exception e) {
+            logger.error("检查管理员权限失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    @GetMapping("/admin/users")
+    @Operation(summary = "获取所有用户", description = "管理员获取所有用户列表（分页）")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<Page<UserInfo>>> getAllUsers(
+            @RequestParam(defaultValue = "1") int current,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            if (!isCurrentUserAdmin()) {
+                return ResponseEntity.status(403).body(ApiResponse.error(403, "权限不足，只有管理员可以访问"));
+            }
+            
+            Page<Users> usersPage = usersService.getAllUsers(current, size);
+            Page<UserInfo> userInfoPage = new Page<>(current, size);
+            userInfoPage.setTotal(usersPage.getTotal());
+            userInfoPage.setRecords(
+                usersPage.getRecords().stream()
+                    .map(UserInfo::fromUsers)
+                    .collect(Collectors.toList())
+            );
+            
+            return ResponseEntity.ok(ApiResponse.success("获取用户列表成功", userInfoPage));
+        } catch (Exception e) {
+            logger.error("获取用户列表失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "获取用户列表失败: " + e.getMessage()));
+        }
+    }
+    
+    @PutMapping("/admin/users/admin")
+    @Operation(summary = "更新用户管理员状态", description = "管理员更新用户的管理员权限")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<String>> updateUserAdmin(@Valid @RequestBody UpdateUserAdminRequest request) {
+        try {
+            if (!isCurrentUserAdmin()) {
+                return ResponseEntity.status(403).body(ApiResponse.error(403, "权限不足，只有管理员可以访问"));
+            }
+            
+            boolean success = usersService.updateUserAdmin(request.getUserId(), request.getIsAdmin());
+            if (success) {
+                String status = request.getIsAdmin() == 1 ? "管理员" : "普通用户";
+                return ResponseEntity.ok(ApiResponse.success("用户权限更新成功", "已将用户设置为" + status));
+            } else {
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, "更新失败，用户不存在"));
+            }
+        } catch (Exception e) {
+            logger.error("更新用户管理员状态失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "更新失败: " + e.getMessage()));
+        }
+    }
+    
+    @PutMapping("/admin/users/credit")
+    @Operation(summary = "更新用户积分", description = "管理员更新用户的积分余额")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<String>> updateUserCredit(@Valid @RequestBody UpdateUserCreditRequest request) {
+        try {
+            if (!isCurrentUserAdmin()) {
+                return ResponseEntity.status(403).body(ApiResponse.error(403, "权限不足，只有管理员可以访问"));
+            }
+            
+            boolean success = usersService.updateUserCredit(request.getUserId(), request.getCreditBalance());
+            if (success) {
+                return ResponseEntity.ok(ApiResponse.success("用户积分更新成功", "积分已更新为: " + request.getCreditBalance()));
+            } else {
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, "更新失败，用户不存在"));
+            }
+        } catch (Exception e) {
+            logger.error("更新用户积分失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "更新失败: " + e.getMessage()));
+        }
+    }
+    
+    @DeleteMapping("/admin/users/{userId}")
+    @Operation(summary = "删除用户", description = "管理员删除用户")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<String>> deleteUser(@PathVariable Long userId) {
+        try {
+            if (!isCurrentUserAdmin()) {
+                return ResponseEntity.status(403).body(ApiResponse.error(403, "权限不足，只有管理员可以访问"));
+            }
+            
+            // 不允许删除当前登录的管理员自己
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String currentUserEmail = authentication.getName();
+            Users currentUser = usersService.getUserByEmail(currentUserEmail);
+            if (currentUser != null && currentUser.getId().equals(userId)) {
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, "不能删除自己的账户"));
+            }
+            
+            boolean success = usersService.deleteUser(userId);
+            if (success) {
+                return ResponseEntity.ok(ApiResponse.success("用户删除成功", "用户已被删除"));
+            } else {
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, "删除失败，用户不存在"));
+            }
+        } catch (Exception e) {
+            logger.error("删除用户失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "删除失败: " + e.getMessage()));
+        }
+    }
+    
+    @GetMapping("/admin/users/search")
+    @Operation(summary = "搜索用户", description = "管理员根据关键字搜索用户")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<List<UserInfo>>> searchUsers(@RequestParam String keyword) {
+        try {
+            if (!isCurrentUserAdmin()) {
+                return ResponseEntity.status(403).body(ApiResponse.error(403, "权限不足，只有管理员可以访问"));
+            }
+            
+            List<Users> users = usersService.searchUsers(keyword);
+            List<UserInfo> userInfos = users.stream()
+                .map(UserInfo::fromUsers)
+                .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(ApiResponse.success("搜索完成", userInfos));
+        } catch (Exception e) {
+            logger.error("搜索用户失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "搜索失败: " + e.getMessage()));
         }
     }
 }

@@ -1,9 +1,13 @@
 package su.sue.aiproject.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import su.sue.aiproject.domain.RegisterRequest;
 import su.sue.aiproject.domain.Users;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 /**
 * @author Akaio
@@ -19,4 +23,15 @@ public interface UsersService extends IService<Users>, UserDetailsService {
     void registerUser(RegisterRequest registerRequest);
     
     Users getUserByEmail(String email);
+    
+    // 管理员相关方法
+    Page<Users> getAllUsers(int current, int size);
+    
+    boolean updateUserAdmin(Long userId, Integer isAdmin);
+    
+    boolean updateUserCredit(Long userId, BigDecimal creditBalance);
+    
+    boolean deleteUser(Long userId);
+    
+    List<Users> searchUsers(String keyword);
 }
