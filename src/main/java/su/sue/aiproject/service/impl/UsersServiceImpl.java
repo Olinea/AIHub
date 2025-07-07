@@ -82,4 +82,9 @@ public class UsersServiceImpl extends ServiceImpl<UsersMapper, Users>
         user.setUpdatedAt(new Date());
         getBaseMapper().insert(user);
     }
+    
+    @Override
+    public Users getUserByEmail(String email) {
+        return getBaseMapper().selectOne(new QueryWrapper<Users>().eq("email", email));
+    }
 }

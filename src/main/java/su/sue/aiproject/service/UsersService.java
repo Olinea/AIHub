@@ -17,4 +17,6 @@ public interface UsersService extends IService<Users>, UserDetailsService {
     boolean existsByEmail(String email);
 
     void registerUser(RegisterRequest registerRequest);
+    
+    Users getUserByEmail(String email);
 }

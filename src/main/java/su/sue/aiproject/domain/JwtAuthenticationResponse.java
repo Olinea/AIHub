@@ -23,6 +23,9 @@ public class JwtAuthenticationResponse {
     @Schema(description = "用户邮箱")
     private String email;
     
+    @Schema(description = "用户信息")
+    private UserInfo user;
+    
     public JwtAuthenticationResponse(String accessToken) {
         this.accessToken = accessToken;
         this.tokenType = "Bearer";
@@ -33,5 +36,13 @@ public class JwtAuthenticationResponse {
         this.tokenType = "Bearer";
         this.expiresIn = expiresIn;
         this.email = email;
+    }
+    
+    public JwtAuthenticationResponse(String accessToken, Long expiresIn, String email, UserInfo user) {
+        this.accessToken = accessToken;
+        this.tokenType = "Bearer";
+        this.expiresIn = expiresIn;
+        this.email = email;
+        this.user = user;
     }
 }

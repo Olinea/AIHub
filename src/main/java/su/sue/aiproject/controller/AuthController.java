@@ -7,6 +7,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,10 +16,13 @@ import su.sue.aiproject.domain.LoginRequest;
 import su.sue.aiproject.domain.RegisterRequest;
 import su.sue.aiproject.domain.ApiResponse;
 import su.sue.aiproject.domain.JwtAuthenticationResponse;
+import su.sue.aiproject.domain.UserInfo;
+import su.sue.aiproject.domain.Users;
 import su.sue.aiproject.security.JwtTokenProvider;
 import su.sue.aiproject.service.UsersService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 
 // 添加日志依赖
@@ -72,7 +76,11 @@ public class AuthController {
             String jwt = tokenProvider.generateToken(authentication);
             Long expiresIn = tokenProvider.getJwtExpirationInMs() / 1000; // 转换为秒
             
-            JwtAuthenticationResponse response = new JwtAuthenticationResponse(jwt, expiresIn, loginRequest.getEmail());
+            // 获取用户信息
+            Users user = usersService.getUserByEmail(loginRequest.getEmail());
+            UserInfo userInfo = UserInfo.fromUsers(user);
+            
+            JwtAuthenticationResponse response = new JwtAuthenticationResponse(jwt, expiresIn, loginRequest.getEmail(), userInfo);
             
             logger.info("Token生成成功，登录完成");
             return ResponseEntity.ok(ApiResponse.success("登录成功", response));
@@ -96,5 +104,40 @@ public class AuthController {
         usersService.registerUser(registerRequest);
 
         return ResponseEntity.ok(ApiResponse.success("用户注册成功", "注册完成，请登录"));
+    }
+    
+    @GetMapping("/me")
+    @Operation(summary = "获取当前用户信息", description = "获取当前登录用户的信息并重置JWT")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<JwtAuthenticationResponse>> getCurrentUser() {
+        try {
+            // 从SecurityContext获取当前认证信息
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body(ApiResponse.error(401, "未认证"));
+            }
+            
+            String email = authentication.getName();
+            logger.info("获取用户信息 - 邮箱: {}", email);
+            
+            // 获取用户信息
+            Users user = usersService.getUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.status(404).body(ApiResponse.error(404, "用户不存在"));
+            }
+            
+            // 生成新的JWT token
+            String jwt = tokenProvider.generateToken(authentication);
+            Long expiresIn = tokenProvider.getJwtExpirationInMs() / 1000; // 转换为秒
+            
+            UserInfo userInfo = UserInfo.fromUsers(user);
+            JwtAuthenticationResponse response = new JwtAuthenticationResponse(jwt, expiresIn, email, userInfo);
+            
+            logger.info("用户信息获取成功，新Token生成完成");
+            return ResponseEntity.ok(ApiResponse.success("获取用户信息成功", response));
+        } catch (Exception e) {
+            logger.error("获取用户信息失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "获取用户信息失败: " + e.getMessage()));
+        }
     }
 }
