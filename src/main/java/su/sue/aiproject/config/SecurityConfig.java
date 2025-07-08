@@ -41,11 +41,23 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/doc.html", "/webjars/**", "/swagger-resources/**", "/v3/api-docs/**").permitAll()
+                        // 认证相关接口
+                        .requestMatchers("/api/auth/**").permitAll()
+                        // Knife4j和Swagger文档相关路径 - 在开发环境完全开放
+                        .requestMatchers("/doc.html", "/doc.html/**", "/webjars/**", "/swagger-resources/**", 
+                                        "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml", "/swagger-ui/**", 
+                                        "/swagger-ui.html", "/favicon.ico", "/error").permitAll()
+                        // 静态资源
+                        .requestMatchers("/css/**", "/js/**", "/images/**", "/static/**").permitAll()
+                        // actuator端点（开发环境）
+                        .requestMatchers("/actuator/**").permitAll()
+                        // 管理员接口
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // 其他请求需要认证
                         .anyRequest().authenticated()
                 );
 
+        // 只对需要认证的路径添加JWT过滤器
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

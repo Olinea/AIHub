@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import su.sue.aiproject.domain.AiModels;
 import su.sue.aiproject.domain.ApiResponse;
 import su.sue.aiproject.service.AiModelsService;
+import su.sue.aiproject.service.AiApiTestService;
 
 @RestController
 @RequestMapping("/api/admin/ai-models")
@@ -19,9 +20,10 @@ import su.sue.aiproject.service.AiModelsService;
 public class AiModelTestController {
 
     private final AiModelsService aiModelsService;
+    private final AiApiTestService aiApiTestService;
 
     @PostMapping("/{id}/test-connection")
-    @Operation(summary = "测试API连接", description = "测试指定AI模型的API连接是否正常")
+    @Operation(summary = "测试API连接", description = "测试指定AI模型的API连接是否正常，支持OpenAI兼容格式及主流AI服务商")
     public ResponseEntity<ApiResponse<String>> testApiConnection(
             @Parameter(description = "模型ID") @PathVariable Integer id) {
         
@@ -31,8 +33,7 @@ public class AiModelTestController {
             return ResponseEntity.notFound().build();
         }
 
-        // 这里应该实际调用对应的AI服务API进行测试
-        // 为了演示，我们只是检查必要字段是否存在
+        // 验证必要字段
         if (model.getApiKey() == null || model.getApiKey().trim().isEmpty()) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("API密钥未配置"));
@@ -43,21 +44,38 @@ public class AiModelTestController {
                 .body(ApiResponse.error("API端点未配置"));
         }
 
-        // TODO: 实际实现中应该调用对应AI服务的API进行连接测试
-        // 这里只是模拟测试成功
-        String testResult = String.format("模型 %s (%s) 连接测试通过\n" +
-                "API端点: %s\n" +
-                "API密钥: %s...\n" +
-                "组织ID: %s\n" +
-                "项目ID: %s", 
-                model.getModelName(), 
-                model.getProvider(),
-                model.getApiEndpoint(),
-                model.getApiKey().length() > 10 ? model.getApiKey().substring(0, 10) : model.getApiKey(),
-                model.getOrganizationId(),
-                model.getProjectId());
+        if (model.getModelName() == null || model.getModelName().trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("模型名称未配置"));
+        }
 
-        return ResponseEntity.ok(ApiResponse.success("API连接测试完成", testResult));
+        // 执行实际的API连接测试
+        try {
+            String testResult = aiApiTestService.testApiConnection(model);
+            
+            // 构建详细的测试报告
+            StringBuilder detailReport = new StringBuilder();
+            detailReport.append("🔍 测试模型信息:\n");
+            detailReport.append("模型名称: ").append(model.getModelName()).append("\n");
+            detailReport.append("提供商: ").append(model.getProvider()).append("\n");
+            detailReport.append("API端点: ").append(model.getApiEndpoint()).append("\n");
+            detailReport.append("API密钥: ").append(maskApiKey(model.getApiKey())).append("\n");
+            
+            if (model.getOrganizationId() != null && !model.getOrganizationId().trim().isEmpty()) {
+                detailReport.append("组织ID: ").append(model.getOrganizationId()).append("\n");
+            }
+            if (model.getProjectId() != null && !model.getProjectId().trim().isEmpty()) {
+                detailReport.append("项目ID: ").append(model.getProjectId()).append("\n");
+            }
+            
+            detailReport.append("\n📊 测试结果:\n");
+            detailReport.append(testResult);
+            
+            return ResponseEntity.ok(ApiResponse.success("API连接测试完成", detailReport.toString()));
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("API连接测试失败: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/{id}/show-config")
@@ -72,5 +90,18 @@ public class AiModelTestController {
         }
 
         return ResponseEntity.ok(ApiResponse.success("获取模型配置成功", model));
+    }
+
+    /**
+     * 掩码API密钥，只显示前几位和后几位
+     */
+    private String maskApiKey(String apiKey) {
+        if (apiKey == null || apiKey.length() <= 8) {
+            return "***";
+        }
+        if (apiKey.length() <= 16) {
+            return apiKey.substring(0, 4) + "***" + apiKey.substring(apiKey.length() - 4);
+        }
+        return apiKey.substring(0, 8) + "***" + apiKey.substring(apiKey.length() - 8);
     }
 }

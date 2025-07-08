@@ -33,7 +33,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         "/doc.html",
         "/webjars/",
         "/swagger-resources/",
-        "/v3/api-docs/"
+        "/v3/api-docs",
+        "/swagger-ui/",
+        "/favicon.ico",
+        "/error",
+        "/actuator/"
     );
 
     @Autowired
@@ -97,7 +101,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     private boolean isWhitelistPath(String requestURI) {
         return WHITELIST_PATHS.stream()
-                .anyMatch(path -> requestURI.startsWith(path));
+                .anyMatch(path -> {
+                    // 精确匹配
+                    if (path.equals(requestURI)) {
+                        return true;
+                    }
+                    // 前缀匹配（对于以/结尾的路径）
+                    if (path.endsWith("/") && requestURI.startsWith(path)) {
+                        return true;
+                    }
+                    // 特殊处理 v3/api-docs 相关路径
+                    if (path.equals("/v3/api-docs") && (requestURI.equals("/v3/api-docs") || requestURI.startsWith("/v3/api-docs/"))) {
+                        return true;
+                    }
+                    return false;
+                });
     }
     
     /**
