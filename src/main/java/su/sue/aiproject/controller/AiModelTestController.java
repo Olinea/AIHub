@@ -71,10 +71,25 @@ public class AiModelTestController {
             detailReport.append("\n📊 测试结果:\n");
             detailReport.append(testResult);
             
-            return ResponseEntity.ok(ApiResponse.success("API连接测试完成", detailReport.toString()));
+            // 根据测试结果判断是否成功
+            if (isTestSuccessful(testResult)) {
+                return ResponseEntity.ok(ApiResponse.success("API连接测试完成", detailReport.toString()));
+            } else {
+                // 区分不同类型的错误
+                if (isConfigurationError(testResult)) {
+                    // 配置错误，返回400
+                    return ResponseEntity.badRequest()
+                            .body(new ApiResponse<>(400, "API连接测试失败（配置错误）", detailReport.toString()));
+                } else {
+                    // 连接错误，返回500
+                    return ResponseEntity.internalServerError()
+                            .body(new ApiResponse<>(500, "API连接测试失败（连接错误）", detailReport.toString()));
+                }
+            }
             
         } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("API连接测试失败: " + e.getMessage()));
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("API连接测试失败: " + e.getMessage()));
         }
     }
 
@@ -103,5 +118,35 @@ public class AiModelTestController {
             return apiKey.substring(0, 4) + "***" + apiKey.substring(apiKey.length() - 4);
         }
         return apiKey.substring(0, 8) + "***" + apiKey.substring(apiKey.length() - 8);
+    }
+
+    /**
+     * 判断测试是否成功
+     */
+    private boolean isTestSuccessful(String testResult) {
+        return testResult != null && testResult.contains("✅");
+    }
+
+    /**
+     * 判断是否为配置错误
+     */
+    private boolean isConfigurationError(String testResult) {
+        if (testResult == null) {
+            return false;
+        }
+        
+        // 检查常见的配置错误关键字
+        String lowerResult = testResult.toLowerCase();
+        return lowerResult.contains("unauthorized") || 
+               lowerResult.contains("401") ||
+               lowerResult.contains("invalid authentication") ||
+               lowerResult.contains("api key") ||
+               lowerResult.contains("forbidden") ||
+               lowerResult.contains("403") ||
+               lowerResult.contains("invalid_request_error") ||
+               lowerResult.contains("authentication_error") ||
+               lowerResult.contains("invalid api key") ||
+               lowerResult.contains("not found") ||
+               lowerResult.contains("404");
     }
 }
