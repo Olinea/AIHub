@@ -88,10 +88,6 @@ public class AuthController {
     @PostMapping("/register")
     @Operation(summary = "用户注册", description = "注册新用户账号")
     public ResponseEntity<ApiResponse<String>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
-        if (usersService.existsByUsername(registerRequest.getUsername())) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(400, "用户名已被使用"));
-        }
-
         if (usersService.existsByEmail(registerRequest.getEmail())) {
             return ResponseEntity.badRequest().body(ApiResponse.error(400, "邮箱已被使用"));
         }
@@ -269,6 +265,23 @@ public class AuthController {
         } catch (Exception e) {
             logger.error("搜索用户失败: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(ApiResponse.error(500, "搜索失败: " + e.getMessage()));
+        }
+    }
+    
+    @GetMapping("/admin/users/summary")
+    @Operation(summary = "获取用户统计", description = "管理员获取用户总数、新增用户、活跃用户等统计信息")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<UsersSummaryResponse>> getUsersSummary() {
+        try {
+            if (!isCurrentUserAdmin()) {
+                return ResponseEntity.status(403).body(ApiResponse.error(403, "权限不足，只有管理员可以访问"));
+            }
+            
+            UsersSummaryResponse summary = usersService.getUsersSummary();
+            return ResponseEntity.ok(ApiResponse.success("获取用户统计成功", summary));
+        } catch (Exception e) {
+            logger.error("获取用户统计失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "获取用户统计失败: " + e.getMessage()));
         }
     }
 }

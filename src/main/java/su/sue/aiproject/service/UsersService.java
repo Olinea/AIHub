@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import su.sue.aiproject.domain.RegisterRequest;
 import su.sue.aiproject.domain.Users;
+import su.sue.aiproject.domain.UsersSummaryResponse;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -34,4 +35,7 @@ public interface UsersService extends IService<Users>, UserDetailsService {
     boolean deleteUser(Long userId);
     
     List<Users> searchUsers(String keyword);
+    
+    // 用户统计方法
+    UsersSummaryResponse getUsersSummary();
 }
