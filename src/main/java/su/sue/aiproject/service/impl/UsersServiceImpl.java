@@ -106,7 +106,7 @@ public class UsersServiceImpl extends ServiceImpl<UsersMapper, Users>
     @Override
     public Page<Users> getAllUsers(int current, int size) {
         Page<Users> page = new Page<>(current, size);
-        return getBaseMapper().selectPage(page, new QueryWrapper<Users>().orderByDesc("created_at"));
+        return getBaseMapper().selectPage(page, new QueryWrapper<Users>().orderByAsc("id"));
     }
     
     @Override
