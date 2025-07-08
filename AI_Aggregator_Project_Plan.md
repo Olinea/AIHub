@@ -114,7 +114,7 @@
 | `extra_headers`        | `JSON`           | 可空       | 额外的请求头（JSON格式存储）              |
 | `cost_per_1k_tokens`   | `DECIMAL(10, 6)` | 非空       | 每 1000 token 的成本（美元或积分）        |
 | `rate_limit_per_minute`| `INT`            | 默认 60    | 每分钟请求限制                            |
-| `is_enabled`           | `BOOLEAN`        | 默认 true  | 是否启用                                  |
+| `is_enabled`           | `BOOLEAN`        | 默认 false | 是否启用                                  |
 | `created_at`           | `DATETIME`       | 非空       | 创建时间                                  |
 | `updated_at`           | `DATETIME`       | 非空       | 更新时间                                  |
 

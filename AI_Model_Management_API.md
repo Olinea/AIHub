@@ -26,7 +26,7 @@
   "extraHeaders": "{\"Custom-Header\": \"value\"}",
   "costPer1kTokens": 0.03,
   "rateLimitPerMinute": 60,
-  "isEnabled": true
+  "isEnabled": false
 }
 ```
 
@@ -113,7 +113,7 @@
 | extra_headers | JSON | 可空 | 额外请求头 |
 | cost_per_1k_tokens | DECIMAL(10, 6) | 非空 | 每1000 token成本 |
 | rate_limit_per_minute | INT | 默认60 | 每分钟请求限制 |
-| is_enabled | BOOLEAN | 默认true | 是否启用 |
+| is_enabled | BOOLEAN | 默认false | 是否启用 |
 | created_at | DATETIME | 非空 | 创建时间 |
 | updated_at | DATETIME | 非空 | 更新时间 |
 
@@ -152,7 +152,7 @@ curl -X POST http://localhost:8080/api/admin/ai-models \
     "organizationId": "org-your-organization-id",
     "costPer1kTokens": 0.01,
     "rateLimitPerMinute": 60,
-    "isEnabled": true
+    "isEnabled": false
   }'
 ```
 

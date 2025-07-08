@@ -50,6 +50,6 @@ public class AddAiModelRequest {
     @Schema(description = "每分钟请求限制", example = "60")
     private Integer rateLimitPerMinute = 60;
 
-    @Schema(description = "是否启用", example = "true")
-    private Boolean isEnabled = true;
+    @Schema(description = "是否启用", example = "false")
+    private Boolean isEnabled = false;
 }
