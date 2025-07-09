@@ -44,6 +44,11 @@ public class AiModelAdminController {
         AiModels aiModel = new AiModels();
         BeanUtils.copyProperties(request, aiModel);
         
+        // 处理 extraHeaders：空字符串转为 NULL，确保 JSON 字段约束不失败
+        if (request.getExtraHeaders() != null && request.getExtraHeaders().trim().isEmpty()) {
+            aiModel.setExtraHeaders(null);
+        }
+        
         // 设置创建时间
         aiModel.setCreatedAt(LocalDateTime.now());
         aiModel.setUpdatedAt(LocalDateTime.now());
@@ -86,7 +91,14 @@ public class AiModelAdminController {
         existingModel.setApiEndpoint(request.getApiEndpoint());
         existingModel.setOrganizationId(request.getOrganizationId());
         existingModel.setProjectId(request.getProjectId());
-        existingModel.setExtraHeaders(request.getExtraHeaders());
+        
+        // 处理 extraHeaders：空字符串转为 NULL，确保 JSON 字段约束不失败
+        if (request.getExtraHeaders() != null && request.getExtraHeaders().trim().isEmpty()) {
+            existingModel.setExtraHeaders(null);
+        } else {
+            existingModel.setExtraHeaders(request.getExtraHeaders());
+        }
+        
         existingModel.setCostPer1kTokens(request.getCostPer1kTokens());
         existingModel.setRateLimitPerMinute(request.getRateLimitPerMinute());
         existingModel.setIsEnabled(request.getIsEnabled());

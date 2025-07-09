@@ -53,7 +53,9 @@ public class JwtTokenProvider {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
             return true;
         } catch (Exception ex) {
-            // Log exception
+            // Log detailed exception for debugging
+            System.err.println("JWT validation failed: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+            ex.printStackTrace();
         }
         return false;
     }
