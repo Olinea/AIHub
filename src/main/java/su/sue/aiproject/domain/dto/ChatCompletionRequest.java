@@ -13,8 +13,8 @@ import java.util.Map;
 @Schema(description = "聊天完成请求")
 public class ChatCompletionRequest {
     
-    @Schema(description = "模型名称", example = "deepseek-chat")
-    private String model;
+    @Schema(description = "模型ID", example = "1")
+    private Integer id;
     
     @Schema(description = "消息列表")
     private List<ChatMessage> messages;

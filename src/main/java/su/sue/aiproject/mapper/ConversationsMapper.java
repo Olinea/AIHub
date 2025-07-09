@@ -2,6 +2,8 @@ package su.sue.aiproject.mapper;
 
 import su.sue.aiproject.domain.Conversations;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Param;
 
 /**
 * @author Akaio
@@ -10,6 +12,12 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity su.sue.aiproject.domain.Conversations
 */
 public interface ConversationsMapper extends BaseMapper<Conversations> {
+
+    /**
+     * 更新会话的模型ID
+     */
+    @Update("UPDATE conversations SET model_id = #{modelId} WHERE id = #{conversationId}")
+    int updateModelId(@Param("conversationId") Long conversationId, @Param("modelId") Integer modelId);
 
 }
 

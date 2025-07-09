@@ -16,14 +16,18 @@ public class WebClientConfig {
 
     @Bean
     public WebClient.Builder webClientBuilder() {
-        // 配置HTTP客户端
+        // 配置HTTP客户端 - 增加超时时间以支持流式响应
         HttpClient httpClient = HttpClient.create()
-                .responseTimeout(Duration.ofSeconds(30))
+                .responseTimeout(Duration.ofSeconds(120)) // 增加到120秒以支持长时间的流式响应
                 .followRedirect(true);
         
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024)); // 10MB
+                .codecs(configurer -> {
+                    configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024); // 10MB
+                    // 设置默认字符编码为 UTF-8
+                    configurer.defaultCodecs().enableLoggingRequestDetails(true);
+                });
     }
     
     @Bean

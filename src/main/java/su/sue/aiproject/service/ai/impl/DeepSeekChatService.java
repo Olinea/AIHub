@@ -18,12 +18,14 @@ import su.sue.aiproject.service.ConversationsService;
 import su.sue.aiproject.service.MessagesService;
 import su.sue.aiproject.domain.Conversations;
 import su.sue.aiproject.domain.Messages;
+import su.sue.aiproject.mapper.ConversationsMapper;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * DeepSeek AI聊天服务实现
@@ -39,20 +41,21 @@ public class DeepSeekChatService implements AiChatService {
     private final ObjectMapper objectMapper;
     private final ConversationsService conversationsService;
     private final MessagesService messagesService;
+    private final ConversationsMapper conversationsMapper;
     
     private static final String PROVIDER_NAME = "deepseek";
     
     @Override
     public ChatCompletionResponse chat(ChatCompletionRequest request, Long userId) {
         // 获取模型信息
-        AiModels model = getModelByName(request.getModel());
+        AiModels model = getModelById(request.getId());
         
         // 检查用户积分
         checkUserCredit(userId, model);
         
         try {
             // 构建请求
-            String requestBody = buildRequestBody(request, false);
+            String requestBody = buildRequestBody(request, model.getModelName(), false);
             
             // 调用DeepSeek API
             String response = webClient.post()
@@ -94,18 +97,26 @@ public class DeepSeekChatService implements AiChatService {
     @Override
     public SseEmitter chatStream(ChatCompletionRequest request, Long userId) {
         // 获取模型信息
-        AiModels model = getModelByName(request.getModel());
+        // 获取模型信息
+        AiModels model = getModelById(request.getId());
         
         // 检查用户积分
         checkUserCredit(userId, model);
         
         SseEmitter emitter = new SseEmitter(300000L); // 5分钟超时
+        
+        // 设置SSE响应的内容类型和编码
+        emitter.onCompletion(() -> log.debug("SSE emitter 完成"));
+        emitter.onTimeout(() -> log.warn("SSE emitter 超时"));
+        emitter.onError(e -> log.error("SSE emitter 错误: {}", e.getMessage()));
+        
         StringBuilder fullContent = new StringBuilder();
         final AtomicReference<ChatCompletionUsage> finalUsageRef = new AtomicReference<>();
+        final AtomicBoolean isComplete = new AtomicBoolean(false);
         
         try {
             // 构建请求
-            String requestBody = buildRequestBody(request, true);
+            String requestBody = buildRequestBody(request, model.getModelName(), true);
             
             // 异步处理流式响应
             CompletableFuture.runAsync(() -> {
@@ -114,12 +125,14 @@ public class DeepSeekChatService implements AiChatService {
                     webClient.post()
                             .uri(model.getApiEndpoint())
                             .header(HttpHeaders.AUTHORIZATION, "Bearer " + model.getApiKey())
-                            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                            .header(HttpHeaders.ACCEPT, "text/event-stream")
+                            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8")
+                            .header(HttpHeaders.ACCEPT, "text/event-stream;charset=UTF-8")
+                            .header("Accept-Charset", "UTF-8")
+                            .header("Cache-Control", "no-cache")
                             .bodyValue(requestBody)
                             .retrieve()
                             .bodyToFlux(String.class)
-                            .timeout(Duration.ofSeconds(60))
+                            .timeout(Duration.ofSeconds(120)) // 增加超时时间
                             .doOnNext(data -> {
                                 try {
                                     log.debug("收到 SSE 数据: {}", data);
@@ -127,58 +140,78 @@ public class DeepSeekChatService implements AiChatService {
                                     handleAndForwardSseData(data, emitter, finalUsageRef, fullContent);
                                 } catch (Exception e) {
                                     log.error("处理 SSE 数据失败", e);
-                                    emitter.completeWithError(e);
+                                    // 不立即调用 completeWithError，而是记录错误并继续
+                                    log.warn("SSE数据处理出错，但继续处理后续数据: {}", e.getMessage());
                                 }
                             })
                             .doOnError(error -> {
                                 log.error("流式请求失败", error);
-                                emitter.completeWithError(error);
+                                if (!isComplete.get()) {
+                                    // 尝试保存已有的内容
+                                    saveStreamDataOnError(userId, model, request, fullContent.toString(), finalUsageRef.get());
+                                    emitter.completeWithError(error);
+                                }
                             })
                             .doOnComplete(() -> {
                                 try {
-                                    // 不再手动发送 [DONE]，因为已经在 handleAndForwardSseData 中转发了
-                                    log.debug("流式响应完成");
-                                    
-                                    // 计费和保存记录
-                                    ChatCompletionUsage finalUsage = finalUsageRef.get();
-                                    if (finalUsage == null) {
-                                        // 如果没有获取到 usage，创建估算的 usage
-                                        ChatCompletionResponse mockResponse = new ChatCompletionResponse();
-                                        // 创建一个包含流式内容的 choice
+                                    if (!isComplete.getAndSet(true)) {
+                                        log.debug("流式响应完成，开始保存数据");
+                                        
+                                        // 构建完整的响应对象，包含收集到的内容
+                                        ChatCompletionResponse finalResponse = new ChatCompletionResponse();
                                         ChatCompletionChoice choice = new ChatCompletionChoice();
                                         ChatMessage message = new ChatMessage();
                                         message.setRole("assistant");
                                         message.setContent(fullContent.toString());
                                         choice.setMessage(message);
-                                        mockResponse.setChoices(java.util.Arrays.asList(choice));
+                                        finalResponse.setChoices(java.util.Arrays.asList(choice));
                                         
-                                        finalUsage = createEstimatedUsage(request, mockResponse);
-                                        log.info("流式响应创建估算 usage: {}", finalUsage);
+                                        // 计费和保存记录 - 同步处理
+                                        ChatCompletionUsage finalUsage = finalUsageRef.get();
+                                        if (finalUsage == null) {
+                                            // 如果没有获取到 usage，创建估算的 usage
+                                            finalUsage = createEstimatedUsage(request, finalResponse);
+                                            log.info("流式响应创建估算 usage: {}", finalUsage);
+                                        }
+                                        
+                                        // 设置 usage 到最终响应对象
+                                        finalResponse.setUsage(finalUsage);
+                                        
+                                        log.info("准备保存流式响应: content={}, tokens={}", 
+                                                fullContent.toString(), finalUsage.getTotalTokens());
+                                        
+                                        chargeCreditAndSaveRecord(userId, model, finalUsage, request, finalResponse);
+                                        log.info("流式响应数据保存完成");
+                                        
+                                        // 使用异步方式延迟关闭连接，确保客户端接收完所有数据
+                                        CompletableFuture.runAsync(() -> {
+                                            try {
+                                                Thread.sleep(500);  // 500ms延迟，确保客户端接收完成
+                                                emitter.complete();
+                                                log.debug("SSE连接已正常关闭");
+                                            } catch (InterruptedException e) {
+                                                Thread.currentThread().interrupt();
+                                                emitter.complete();
+                                            } catch (Exception e) {
+                                                log.error("延迟关闭SSE连接失败", e);
+                                                emitter.complete();
+                                            }
+                                        });
                                     }
-                                    
-                                    ChatCompletionResponse mockResponse = new ChatCompletionResponse();
-                                    mockResponse.setUsage(finalUsage);
-                                    // 添加完整的助手回复用于保存到数据库
-                                    ChatCompletionChoice choice = new ChatCompletionChoice();
-                                    ChatMessage message = new ChatMessage();
-                                    message.setRole("assistant");
-                                    message.setContent(fullContent.toString());
-                                    choice.setMessage(message);
-                                    mockResponse.setChoices(java.util.Arrays.asList(choice));
-                                    
-                                    chargeCreditAndSaveRecord(userId, model, finalUsage, request, mockResponse);
-                                    
-                                    emitter.complete();
                                 } catch (Exception e) {
                                     log.error("完成流式响应失败", e);
-                                    emitter.completeWithError(e);
+                                    if (!isComplete.get()) {
+                                        emitter.completeWithError(e);
+                                    }
                                 }
                             })
                             .subscribe();
                     
                 } catch (Exception e) {
                     log.error("启动流式请求失败", e);
-                    emitter.completeWithError(e);
+                    if (!isComplete.get()) {
+                        emitter.completeWithError(e);
+                    }
                 }
             });
             
@@ -200,11 +233,21 @@ public class DeepSeekChatService implements AiChatService {
         }
     }
     
-    private AiModels getModelByName(String modelName) {
-        AiModels model = aiModelsService.getModelByProviderAndName(PROVIDER_NAME, modelName);
-        if (model == null || !model.getIsEnabled()) {
-            throw new RuntimeException("模型 " + modelName + " 不可用");
+    private AiModels getModelById(Integer modelId) {
+        if (modelId == null) {
+            throw new RuntimeException("模型ID不能为空");
         }
+        
+        AiModels model = aiModelsService.getById(modelId);
+        if (model == null || !model.getIsEnabled()) {
+            throw new RuntimeException("模型 ID:" + modelId + " 不可用");
+        }
+        
+        // 验证是否为DeepSeek模型
+        if (!PROVIDER_NAME.equalsIgnoreCase(model.getProvider())) {
+            throw new RuntimeException("模型 ID:" + modelId + " 不是DeepSeek模型");
+        }
+        
         return model;
     }
     
@@ -217,20 +260,33 @@ public class DeepSeekChatService implements AiChatService {
         }
     }
     
-    private String buildRequestBody(ChatCompletionRequest request, boolean stream) throws JsonProcessingException {
-        // 构建DeepSeek API请求体
-        ChatCompletionRequest deepSeekRequest = new ChatCompletionRequest();
-        deepSeekRequest.setModel(request.getModel());
-        deepSeekRequest.setMessages(request.getMessages());
-        deepSeekRequest.setStream(stream);
-        deepSeekRequest.setTemperature(request.getTemperature());
-        deepSeekRequest.setMaxTokens(request.getMaxTokens());
-        deepSeekRequest.setTopP(request.getTopP());
-        deepSeekRequest.setFrequencyPenalty(request.getFrequencyPenalty());
-        deepSeekRequest.setPresencePenalty(request.getPresencePenalty());
-        deepSeekRequest.setStop(request.getStop());
+    private String buildRequestBody(ChatCompletionRequest request, String modelName, boolean stream) throws JsonProcessingException {
+        // 构建DeepSeek API请求体 - 使用Map来构建JSON
+        java.util.Map<String, Object> apiRequest = new java.util.HashMap<>();
+        apiRequest.put("model", modelName);
+        apiRequest.put("messages", request.getMessages());
+        apiRequest.put("stream", stream);
         
-        return objectMapper.writeValueAsString(deepSeekRequest);
+        if (request.getTemperature() != null) {
+            apiRequest.put("temperature", request.getTemperature());
+        }
+        if (request.getMaxTokens() != null) {
+            apiRequest.put("max_tokens", request.getMaxTokens());
+        }
+        if (request.getTopP() != null) {
+            apiRequest.put("top_p", request.getTopP());
+        }
+        if (request.getFrequencyPenalty() != null) {
+            apiRequest.put("frequency_penalty", request.getFrequencyPenalty());
+        }
+        if (request.getPresencePenalty() != null) {
+            apiRequest.put("presence_penalty", request.getPresencePenalty());
+        }
+        if (request.getStop() != null) {
+            apiRequest.put("stop", request.getStop());
+        }
+        
+        return objectMapper.writeValueAsString(apiRequest);
     }
     
     private ChatCompletionResponse parseResponse(String response) throws JsonProcessingException {
@@ -342,7 +398,12 @@ public class DeepSeekChatService implements AiChatService {
             conversationsService.save(conversation);
             Long conversationId = conversation.getId();
             
-            log.info("创建新会话: conversationId={}, userId={}, title={}", conversationId, userId, title);
+            // 由于原始Conversations实体不包含modelId字段，我们需要通过直接SQL更新
+            // TODO: 未来应该升级到使用ConversationsEnhanced实体
+            updateConversationModelId(conversationId, model.getId());
+            
+            log.info("创建新会话: conversationId={}, userId={}, modelId={}, title={}", 
+                    conversationId, userId, model.getId(), title);
             
             // 2. 保存用户消息
             for (ChatMessage message : request.getMessages()) {
@@ -430,15 +491,38 @@ public class DeepSeekChatService implements AiChatService {
             
             log.debug("处理 SSE 行: {}", line);
             
+            String jsonData = null;
+            
             if (line.startsWith("data: ")) {
-                String jsonData = line.substring(6).trim();
+                // 已有 data: 前缀，提取 JSON 部分用于解析
+                jsonData = line.substring(6).trim();
                 
-                // 原样转发整行（包含 "data: " 前缀）
+                // 转发时去掉 data: 前缀，让 SseEmitter 自动添加
+                emitter.send(SseEmitter.event()
+                    .data(jsonData)
+                    .reconnectTime(0L));
+                    
+            } else if (line.startsWith("event:") || line.startsWith("id:") || line.startsWith("retry:")) {
+                // 其他 SSE 字段原样转发
                 emitter.send(SseEmitter.event().data(line));
+                log.debug("转发 SSE 元数据: {}", line);
+                continue;
                 
+            } else {
+                // 纯 JSON 数据（没有 data: 前缀），直接转发
+                jsonData = line;
+                
+                // 直接转发数据，让 SseEmitter 自动添加 data: 前缀
+                emitter.send(SseEmitter.event()
+                    .data(jsonData)
+                    .reconnectTime(0L));
+            }
+            
+            // 处理 JSON 数据用于本地解析和积累
+            if (jsonData != null) {
                 if ("[DONE]".equals(jsonData)) {
-                    log.debug("收到流结束标记，已转发");
-                    return; // 流结束
+                    log.debug("收到流结束标记，已转发，等待流正常结束");
+                    continue;
                 }
                 
                 // 解析 JSON chunk 用于本地处理
@@ -461,15 +545,58 @@ public class DeepSeekChatService implements AiChatService {
                 } else {
                     log.warn("无法解析的 chunk 数据: {}", jsonData);
                 }
-            } else if (line.startsWith("event:") || line.startsWith("id:") || line.startsWith("retry:")) {
-                // 其他 SSE 字段也要原样转发
-                emitter.send(SseEmitter.event().data(line));
-                log.debug("转发 SSE 元数据: {}", line);
-            } else {
-                // 其他格式的数据也要转发
-                emitter.send(SseEmitter.event().data(line));
-                log.debug("转发其他数据: {}", line);
             }
+        }
+    }
+    
+    /**
+     * 在流式响应出错时保存已收到的数据
+     */
+    private void saveStreamDataOnError(Long userId, AiModels model, ChatCompletionRequest request, 
+                                     String content, ChatCompletionUsage usage) {
+        try {
+            if (content != null && !content.trim().isEmpty()) {
+                log.info("尝试保存部分流式响应内容到数据库");
+                
+                // 创建模拟响应对象
+                ChatCompletionResponse mockResponse = new ChatCompletionResponse();
+                ChatCompletionChoice choice = new ChatCompletionChoice();
+                ChatMessage message = new ChatMessage();
+                message.setRole("assistant");
+                message.setContent(content);
+                choice.setMessage(message);
+                mockResponse.setChoices(java.util.Arrays.asList(choice));
+                
+                // 如果没有usage，创建估算的
+                if (usage == null) {
+                    usage = createEstimatedUsage(request, mockResponse);
+                }
+                mockResponse.setUsage(usage);
+                
+                // 保存记录，但不计费（避免重复扣费）
+                saveConversationRecord(userId, model, request, mockResponse, usage, BigDecimal.ZERO);
+                log.info("成功保存部分流式响应内容");
+            }
+        } catch (Exception e) {
+            log.error("保存部分流式响应内容失败", e);
+        }
+    }
+    
+    /**
+     * 更新会话的模型ID
+     * 临时解决方案：直接通过Mapper更新，因为原始Conversations实体不包含modelId字段
+     */
+    private void updateConversationModelId(Long conversationId, Integer modelId) {
+        try {
+            // 使用注入的ConversationsMapper来更新model_id字段
+            int rows = conversationsMapper.updateModelId(conversationId, modelId);
+            if (rows > 0) {
+                log.info("成功更新会话 {} 的模型ID为 {}", conversationId, modelId);
+            } else {
+                log.warn("更新会话模型ID未影响任何行: conversationId={}, modelId={}", conversationId, modelId);
+            }
+        } catch (Exception e) {
+            log.error("更新会话模型ID失败: conversationId={}, modelId={}", conversationId, modelId, e);
         }
     }
 }

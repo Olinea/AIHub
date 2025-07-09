@@ -41,9 +41,9 @@ public class AiChatController {
             validateRequest(request);
             
             // 检查模型是否支持
-            if (!aiChatManagerService.isModelSupported(request.getModel())) {
+            if (!aiChatManagerService.isModelSupported(request.getId())) {
                 return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("不支持的模型: " + request.getModel()));
+                        .body(ApiResponse.error("不支持的模型ID: " + request.getId()));
             }
             
             // 根据是否流式响应选择不同的处理方式
@@ -53,12 +53,16 @@ public class AiChatController {
                 
                 // 设置错误处理
                 emitter.onError(error -> {
-                    log.error("SSE流发生错误", error);
+                    log.error("SSE流发生错误: {}", error.getMessage(), error);
                 });
                 
                 emitter.onTimeout(() -> {
                     log.warn("SSE流超时");
                     emitter.complete();
+                });
+                
+                emitter.onCompletion(() -> {
+                    log.debug("SSE流正常完成");
                 });
                 
                 return emitter;
@@ -97,8 +101,8 @@ public class AiChatController {
      * 验证请求参数
      */
     private void validateRequest(ChatCompletionRequest request) {
-        if (request.getModel() == null || request.getModel().trim().isEmpty()) {
-            throw new IllegalArgumentException("模型名称不能为空");
+        if (request.getId() == null) {
+            throw new IllegalArgumentException("模型ID不能为空");
         }
         
         if (request.getMessages() == null || request.getMessages().isEmpty()) {
