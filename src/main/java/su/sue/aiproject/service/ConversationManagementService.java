@@ -3,6 +3,7 @@ package su.sue.aiproject.service;
 import su.sue.aiproject.domain.Conversations;
 import su.sue.aiproject.domain.dto.ConversationListResponse;
 import su.sue.aiproject.domain.dto.ConversationDetailResponse;
+import su.sue.aiproject.domain.dto.ConversationSearchResponse;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 import java.util.List;
@@ -85,4 +86,15 @@ public interface ConversationManagementService {
      * @return 创建的会话对象（包含ID）
      */
     Conversations createNewConversation(Conversations conversation);
+
+    /**
+     * 搜索用户的历史对话
+     *
+     * @param userId   用户ID
+     * @param keyword  搜索关键词
+     * @param current  当前页数
+     * @param size     每页大小
+     * @return 搜索结果
+     */
+    Page<ConversationSearchResponse> searchConversations(Long userId, String keyword, long current, long size);
 }

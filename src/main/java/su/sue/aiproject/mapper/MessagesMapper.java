@@ -2,6 +2,7 @@ package su.sue.aiproject.mapper;
 
 import su.sue.aiproject.domain.Messages;
 import su.sue.aiproject.domain.dto.MessageDetailResponse;
+import su.sue.aiproject.domain.dto.ConversationSearchResponse;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Select;
@@ -70,6 +71,35 @@ public interface MessagesMapper extends BaseMapper<Messages> {
         ORDER BY m.created_at ASC
         """)
     Page<MessageDetailResponse> findMessagesByConversationIdWithPage(Page<MessageDetailResponse> page, @Param("conversationId") Long conversationId);
+
+    /**
+     * 搜索用户的历史对话消息
+     */
+    @Select("""
+        SELECT 
+            c.id as conversationId,
+            c.title as conversationTitle,
+            m.id as messageId,
+            m.role as messageRole,
+            m.content as messageContent,
+            m.created_at as messageCreatedAt,
+            m.model_id as modelId,
+            am.model_name as modelName,
+            1.0 as matchScore
+        FROM messages m
+        INNER JOIN conversations c ON m.conversation_id = c.id
+        LEFT JOIN ai_models am ON m.model_id = am.id
+        WHERE c.user_id = #{userId}
+            AND COALESCE(c.status, 'active') != 'deleted'
+            AND (
+                m.content LIKE CONCAT('%', #{keyword}, '%')
+                OR c.title LIKE CONCAT('%', #{keyword}, '%')
+            )
+        ORDER BY m.created_at DESC
+        """)
+    Page<ConversationSearchResponse> searchUserConversations(Page<ConversationSearchResponse> page, 
+                                                           @Param("userId") Long userId, 
+                                                           @Param("keyword") String keyword);
 
 }
 

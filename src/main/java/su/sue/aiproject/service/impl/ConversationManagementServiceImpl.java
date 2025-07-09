@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import su.sue.aiproject.domain.Conversations;
 import su.sue.aiproject.domain.dto.ConversationDetailResponse;
 import su.sue.aiproject.domain.dto.ConversationListResponse;
+import su.sue.aiproject.domain.dto.ConversationSearchResponse;
 import su.sue.aiproject.domain.dto.MessageDetailResponse;
 import su.sue.aiproject.mapper.ConversationsMapper;
 import su.sue.aiproject.mapper.MessagesMapper;
@@ -197,6 +198,26 @@ public class ConversationManagementServiceImpl implements ConversationManagement
         } catch (Exception e) {
             log.error("创建新会话失败, userId: {}, title: {}", conversation.getUserId(), conversation.getTitle(), e);
             throw new RuntimeException("创建新会话失败", e);
+        }
+    }
+
+    @Override
+    public Page<ConversationSearchResponse> searchConversations(Long userId, String keyword, long current, long size) {
+        log.info("搜索用户对话, userId: {}, keyword: {}, current: {}, size: {}", userId, keyword, current, size);
+        try {
+            if (keyword == null || keyword.trim().isEmpty()) {
+                throw new IllegalArgumentException("搜索关键词不能为空");
+            }
+            
+            Page<ConversationSearchResponse> page = new Page<>(current, size);
+            Page<ConversationSearchResponse> result = messagesMapper.searchUserConversations(page, userId, keyword.trim());
+            
+            log.info("搜索用户对话成功, userId: {}, keyword: {}, current: {}, size: {}, total: {}", 
+                    userId, keyword, current, size, result.getTotal());
+            return result;
+        } catch (Exception e) {
+            log.error("搜索用户对话失败, userId: {}, keyword: {}, current: {}, size: {}", userId, keyword, current, size, e);
+            throw new RuntimeException("搜索对话失败", e);
         }
     }
 }

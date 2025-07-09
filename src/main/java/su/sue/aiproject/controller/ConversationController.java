@@ -16,6 +16,7 @@ import su.sue.aiproject.domain.dto.ConversationDetailResponse;
 import su.sue.aiproject.domain.dto.ConversationListResponse;
 import su.sue.aiproject.domain.dto.UpdateConversationTitleRequest;
 import su.sue.aiproject.domain.dto.CreateNewConversationRequest;
+import su.sue.aiproject.domain.dto.ConversationSearchResponse;
 import su.sue.aiproject.security.UserPrincipal;
 import su.sue.aiproject.service.ConversationManagementService;
 
@@ -70,6 +71,28 @@ public class ConversationController {
             log.error("分页获取对话列表失败", e);
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("获取对话列表失败: " + e.getMessage()));
+        }
+    }
+    
+    @GetMapping("/search")
+    @Operation(summary = "搜索历史对话", description = "根据关键词搜索用户的历史对话消息")
+    public ResponseEntity<ApiResponse<Page<ConversationSearchResponse>>> searchConversations(
+            @Parameter(description = "搜索关键词", example = "介绍你自己")
+            @RequestParam String keyword,
+            @Parameter(description = "当前页数", example = "1")
+            @RequestParam(defaultValue = "1") @Min(value = 1, message = "页数最小为1") Long current,
+            @Parameter(description = "每页大小", example = "20")
+            @RequestParam(defaultValue = "20") @Min(value = 1, message = "每页大小最小为1") Long size,
+            Authentication authentication) {
+        
+        try {
+            Long userId = getUserId(authentication);
+            Page<ConversationSearchResponse> searchResults = conversationManagementService.searchConversations(userId, keyword, current, size);
+            return ResponseEntity.ok(ApiResponse.success("搜索历史对话成功", searchResults));
+        } catch (Exception e) {
+            log.error("搜索历史对话失败, keyword: {}", keyword, e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("搜索历史对话失败: " + e.getMessage()));
         }
     }
     
