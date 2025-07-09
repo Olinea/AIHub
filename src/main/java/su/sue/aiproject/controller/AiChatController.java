@@ -27,9 +27,9 @@ public class AiChatController {
     
     private final AiChatManagerService aiChatManagerService;
     
-    @PostMapping("/completions")
+    @PostMapping(value = "/completions", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_EVENT_STREAM_VALUE})
     @Operation(summary = "聊天完成接口", description = "兼容OpenAI格式的聊天完成接口，支持同步和流式响应")
-    public ResponseEntity<?> chatCompletions(
+    public Object chatCompletions(
             @RequestBody ChatCompletionRequest request,
             Authentication authentication) {
         
@@ -48,11 +48,20 @@ public class AiChatController {
             
             // 根据是否流式响应选择不同的处理方式
             if (Boolean.TRUE.equals(request.getStream())) {
-                // 流式响应
+                // 流式响应 - 直接返回SseEmitter，不包装在ResponseEntity中
                 SseEmitter emitter = aiChatManagerService.chatStream(request, userId);
-                return ResponseEntity.ok()
-                        .contentType(MediaType.TEXT_EVENT_STREAM)
-                        .body(emitter);
+                
+                // 设置错误处理
+                emitter.onError(error -> {
+                    log.error("SSE流发生错误", error);
+                });
+                
+                emitter.onTimeout(() -> {
+                    log.warn("SSE流超时");
+                    emitter.complete();
+                });
+                
+                return emitter;
             } else {
                 // 同步响应
                 ChatCompletionResponse response = aiChatManagerService.chat(request, userId);
