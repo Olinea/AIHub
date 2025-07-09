@@ -1,15 +1,56 @@
-# AI聊天统一接口文档
+# AI 聊天统一接口文档
 
-本文档介绍如何使用AI聊天统一接口，该接口兼容OpenAI的API格式，支持多个AI提供商。
+本文档介绍如何使用 AI 聊天统一接口，该接口模仿 OpenAI 的 API 格式，支持多个 AI 提供商。唯一不同的是模型 ID 需要在数据库中配置，且在api请求时使用数据库中的模型 ID，而不是直接使用模型名称。
 
-## 接口地址
+
+## GET 获取启用的AI模型列表
+
+GET /api/ai-models/enabled
+
+获取所有启用状态的AI模型供用户选择
+
+> 返回示例
+
+> 200 Response
+
+```
+{
+    "code": 200,
+    "message": "获取启用的AI模型列表成功",
+    "data": [
+        {
+            "id": 4,
+            "modelName": "deepseek-chat",
+            "provider": "deepseek",
+            "costPer1kTokens": 0.014000
+        },
+        {
+            "id": 2,
+            "modelName": "gemini-2.0-flash:generateContent",
+            "provider": "Google",
+            "costPer1kTokens": 0.010000
+        }
+    ],
+    "timestamp": 1752046115108
+}
+```
+
+### 返回结果
+
+|状态码|状态码含义|说明|数据模型|
+|---|---|---|---|
+|200|[OK](https://tools.ietf.org/html/rfc7231#section-6.3.1)|OK|[ApiResponseListAiModels](#schemaapiresponselistaimodels)|
+
+
+## ai对话接口地址
+
 
 - **生产接口**: `POST /api/v1/chat/completions`
-- **测试接口**: `POST /api/test/chat/simple`
 
 ## 认证
 
-所有请求需要在请求头中包含JWT token：
+所有请求需要在请求头中包含 JWT token：
+
 ```
 Authorization: Bearer <your-jwt-token>
 ```
@@ -24,14 +65,14 @@ Content-Type: application/json
 Authorization: Bearer <your-jwt-token>
 
 {
-  "model": "deepseek-chat",
+  "id": 4, //对应数据库中的模型ID
   "messages": [
     {
       "role": "system",
       "content": "You are a helpful assistant."
     },
     {
-      "role": "user", 
+      "role": "user",
       "content": "你好，请简单介绍一下你自己"
     }
   ],
@@ -68,25 +109,30 @@ Authorization: Bearer <your-jwt-token>
 
 ```json
 {
-  "id": "chatcmpl-123",
+  "id": "c3744b75-97a9-40b8-a2e6-2a0597327a6a",
   "object": "chat.completion",
-  "created": 1677652288,
+  "created": 1752045449,
   "model": "deepseek-chat",
-  "system_fingerprint": "fp_44709d6fcb",
+  "systemFingerprint": null,
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "你好！我是你的智能助手..."
+        "content": "你好！我是DeepSeek Chat",
+        "name": null
       },
-      "finish_reason": "stop"
+      "delta": null,
+      "finishReason": null
     }
   ],
   "usage": {
-    "prompt_tokens": 20,
-    "completion_tokens": 30,
-    "total_tokens": 50
+    "promptTokens": null,
+    "completionTokens": null,
+    "totalTokens": null,
+    "promptTokensDetails": null,
+    "promptCacheHitTokens": null,
+    "promptCacheMissTokens": null
   }
 }
 ```
@@ -104,30 +150,32 @@ data: [DONE]
 ## 支持的模型
 
 ### DeepSeek
-- `deepseek-chat`: DeepSeek聊天模型
+
+- `deepseek-chat`: DeepSeek 聊天模型
 
 ### 即将支持
-- OpenAI GPT系列
-- Anthropic Claude系列
-- 其他主流AI模型
+
+- OpenAI GPT 系列
+- Anthropic Claude 系列
+- 其他主流 AI 模型
 
 ## 参数说明
 
-| 参数 | 类型 | 必需 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| model | string | 是 | - | 模型名称 |
-| messages | array | 是 | - | 消息列表 |
-| stream | boolean | 否 | false | 是否流式响应 |
-| temperature | number | 否 | 1.0 | 温度参数(0-2) |
-| max_tokens | integer | 否 | - | 最大token数 |
-| top_p | number | 否 | 1.0 | top_p参数 |
-| frequency_penalty | number | 否 | 0.0 | 频率惩罚(-2到2) |
-| presence_penalty | number | 否 | 0.0 | 存在惩罚(-2到2) |
-| stop | array | 否 | null | 停止词列表 |
+| 参数              | 类型    | 必需 | 默认值 | 说明              |
+| ----------------- | ------- | ---- | ------ | ----------------- |
+| id                | number  | 是   | -      | 模型 ID           |
+| messages          | array   | 是   | -      | 消息列表          |
+| stream            | boolean | 否   | false  | 是否流式响应      |
+| temperature       | number  | 否   | 1.0    | 温度参数(0-2)     |
+| max_tokens        | integer | 否   | -      | 最大 token 数     |
+| top_p             | number  | 否   | 1.0    | top_p 参数        |
+| frequency_penalty | number  | 否   | 0.0    | 频率惩罚(-2 到 2) |
+| presence_penalty  | number  | 否   | 0.0    | 存在惩罚(-2 到 2) |
+| stop              | array   | 否   | null   | 停止词列表        |
 
 ## 计费说明
 
-- 按实际消耗的token数量计费
+- 按实际消耗的 token 数量计费
 - 不同模型有不同的单价
 - 计费公式：`费用 = (总token数 / 1000) × 模型单价`
 - 费用将自动从用户积分余额中扣除
@@ -155,86 +203,6 @@ data: [DONE]
 ### 错误代码
 
 - `400`: 请求参数错误
-- `401`: 未认证或token无效
+- `401`: 未认证或 token 无效
 - `403`: 权限不足
 - `500`: 服务器内部错误
-
-## 测试接口
-
-### 简单测试
-```http
-POST /api/test/chat/simple?model=deepseek-chat&message=你好&userId=1
-```
-
-### 检查模型支持
-```http
-GET /api/test/chat/models?model=deepseek-chat
-```
-
-## 使用示例
-
-### JavaScript
-```javascript
-const response = await fetch('/api/v1/chat/completions', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + token
-  },
-  body: JSON.stringify({
-    model: 'deepseek-chat',
-    messages: [
-      { role: 'user', content: '你好' }
-    ],
-    stream: false
-  })
-});
-
-const result = await response.json();
-console.log(result.choices[0].message.content);
-```
-
-### Python
-```python
-import requests
-
-response = requests.post('/api/v1/chat/completions', 
-  headers={
-    'Content-Type': 'application/json',
-    'Authorization': f'Bearer {token}'
-  },
-  json={
-    'model': 'deepseek-chat',
-    'messages': [
-      {'role': 'user', 'content': '你好'}
-    ],
-    'stream': False
-  }
-)
-
-result = response.json()
-print(result['choices'][0]['message']['content'])
-```
-
-## 注意事项
-
-1. 请求需要有效的JWT token
-2. 确保账户有足够的积分余额
-3. 流式响应需要正确处理SSE格式
-4. 建议设置合理的超时时间
-5. 大模型响应可能较慢，请耐心等待
-
-## 数据库配置
-
-在使用前，请确保已正确配置AI模型：
-
-```sql
--- 执行sql/insert_deepseek_model.sql插入DeepSeek配置
-```
-
-## 故障排除
-
-1. **"模型不可用"**: 检查数据库中模型配置是否启用
-2. **"积分不足"**: 检查用户积分余额
-3. **"连接超时"**: 检查AI服务商API是否可访问
-4. **"认证失败"**: 检查JWT token是否有效

@@ -81,6 +81,29 @@
 - **接口**: `GET /api/ai-models/enabled`
 - **权限**: 登录用户
 - **说明**: 获取所有启用状态的AI模型，供用户在聊天时选择
+- **安全说明**: 只返回安全字段（id, modelName, provider, costPer1kTokens），不包含API密钥等敏感信息
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "获取启用的AI模型列表成功",
+  "data": [
+    {
+      "id": 1,
+      "modelName": "deepseek-chat",
+      "provider": "DeepSeek",
+      "costPer1kTokens": 0.001
+    },
+    {
+      "id": 2,
+      "modelName": "gpt-4",
+      "provider": "OpenAI", 
+      "costPer1kTokens": 0.03
+    }
+  ]
+}
+```
 
 ## 权限控制
 
@@ -178,8 +201,14 @@ curl -X GET http://localhost:8080/api/ai-models/enabled \
 2. **访问控制**:
    - 管理员接口有严格的权限控制
    - 普通用户无法查看API密钥信息
+   - **普通用户接口安全性**: `/api/ai-models/enabled` 接口已优化，只返回安全字段（id, modelName, provider, costPer1kTokens），不暴露API密钥、组织ID等敏感信息
 
-3. **生产环境建议**:
+3. **数据暴露控制**:
+   - 普通用户接口使用专门的`AiModelSafeResponse` DTO 类
+   - 敏感字段（apiKey、apiSecret、organizationId、projectId、extraHeaders等）对普通用户隐藏
+   - 管理员接口仍可获取完整模型信息用于管理
+
+4. **生产环境建议**:
    - 使用更强的数据库访问控制
    - 考虑API密钥的环境变量存储
    - 启用数据库加密
