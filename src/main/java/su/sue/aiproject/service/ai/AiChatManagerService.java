@@ -24,6 +24,9 @@ public class AiChatManagerService {
     @Qualifier("qwenChatService")
     private final AiChatService qwenChatService;
     
+    @Qualifier("genericOpenAiChatService")
+    private final AiChatService genericOpenAiChatService;
+    
     private final AiModelsService aiModelsService;
     
     /**
@@ -76,15 +79,18 @@ public class AiChatManagerService {
         switch (provider.toLowerCase()) {
             case "deepseek":
                 return deepseekChatService;
-            case "aliyun":
+            case "qwen":
                 return qwenChatService;
+            case "other":
+                return genericOpenAiChatService;
             // TODO: 添加其他AI服务商的支持
             // case "openai":
             //     return openaiChatService;
             // case "anthropic":
             //     return anthropicChatService;
             default:
-                throw new RuntimeException("不支持的提供商: " + provider);
+                log.warn("未知提供商 '{}', 使用通用OpenAI兼容服务", provider);
+                return genericOpenAiChatService;
         }
     }
     
