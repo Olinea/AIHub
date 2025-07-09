@@ -384,26 +384,19 @@ public class DeepSeekChatService implements AiChatService {
     private void saveConversationRecord(Long userId, AiModels model, ChatCompletionRequest request, 
                                       ChatCompletionResponse response, ChatCompletionUsage usage, BigDecimal cost) {
         try {
-            // 实现完整的对话记录保存逻辑
+            // 1. 使用必填的会话ID
+            Long conversationId = request.getConversationId();
+            log.info("使用会话: conversationId={}, userId={}, modelId={}", 
+                    conversationId, userId, model.getId());
             
-            // 1. 创建或获取当前会话 (简化版本：为每次对话创建新会话)
-            Conversations conversation = new Conversations();
-            conversation.setUserId(userId);
-            // 从用户的第一条消息获取标题
-            String title = getConversationTitle(request.getMessages());
-            conversation.setTitle(title);
-            conversation.setCreatedAt(new Date());
+            // 验证会话是否属于当前用户
+            Conversations existingConversation = conversationsService.getById(conversationId);
+            if (existingConversation == null || !existingConversation.getUserId().equals(userId)) {
+                throw new RuntimeException("会话不存在或无权限访问");
+            }
             
-            // 保存会话
-            conversationsService.save(conversation);
-            Long conversationId = conversation.getId();
-            
-            // 由于原始Conversations实体不包含modelId字段，我们需要通过直接SQL更新
-            // TODO: 未来应该升级到使用ConversationsEnhanced实体
+            // 更新会话的模型ID（如果需要）
             updateConversationModelId(conversationId, model.getId());
-            
-            log.info("创建新会话: conversationId={}, userId={}, modelId={}, title={}", 
-                    conversationId, userId, model.getId(), title);
             
             // 2. 保存用户消息
             for (ChatMessage message : request.getMessages()) {
@@ -446,29 +439,6 @@ public class DeepSeekChatService implements AiChatService {
             log.error("保存对话记录失败", e);
             // 不抛出异常，避免影响主流程
         }
-    }
-    
-    /**
-     * 从消息列表中提取会话标题
-     */
-    private String getConversationTitle(java.util.List<ChatMessage> messages) {
-        if (messages == null || messages.isEmpty()) {
-            return "新对话";
-        }
-        
-        // 找到第一个用户消息作为标题
-        for (ChatMessage message : messages) {
-            if ("user".equals(message.getRole()) && message.getContent() != null) {
-                String content = message.getContent().trim();
-                // 限制标题长度
-                if (content.length() > 50) {
-                    return content.substring(0, 50) + "...";
-                }
-                return content;
-            }
-        }
-        
-        return "新对话";
     }
     
     /**

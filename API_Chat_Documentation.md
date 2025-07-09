@@ -65,7 +65,8 @@ Content-Type: application/json
 Authorization: Bearer <your-jwt-token>
 
 {
-  "id": 4, //对应数据库中的模型ID
+  "id": 4,
+  "conversationId": 123,
   "messages": [
     {
       "role": "system",
@@ -92,7 +93,8 @@ Content-Type: application/json
 Authorization: Bearer <your-jwt-token>
 
 {
-  "model": "deepseek-chat",
+  "id": 4,
+  "conversationId": 123,
   "messages": [
     {
       "role": "user",
@@ -161,17 +163,93 @@ data: [DONE]
 
 ## 参数说明
 
-| 参数              | 类型    | 必需 | 默认值 | 说明              |
-| ----------------- | ------- | ---- | ------ | ----------------- |
-| id                | number  | 是   | -      | 模型 ID           |
-| messages          | array   | 是   | -      | 消息列表          |
-| stream            | boolean | 否   | false  | 是否流式响应      |
-| temperature       | number  | 否   | 1.0    | 温度参数(0-2)     |
-| max_tokens        | integer | 否   | -      | 最大 token 数     |
-| top_p             | number  | 否   | 1.0    | top_p 参数        |
-| frequency_penalty | number  | 否   | 0.0    | 频率惩罚(-2 到 2) |
-| presence_penalty  | number  | 否   | 0.0    | 存在惩罚(-2 到 2) |
-| stop              | array   | 否   | null   | 停止词列表        |
+| 参数              | 类型    | 必需 | 默认值 | 说明                                    |
+| ----------------- | ------- | ---- | ------ | --------------------------------------- |
+| id                | number  | 是   | -      | 模型 ID                                 |
+| conversationId    | number  | 是   | -      | 会话 ID（必填，需先通过接口获取）       |
+| messages          | array   | 是   | -      | 消息列表                                |
+| stream            | boolean | 否   | false  | 是否流式响应                            |
+| temperature       | number  | 否   | 1.0    | 温度参数(0-2)                           |
+| max_tokens        | integer | 否   | -      | 最大 token 数                           |
+| top_p             | number  | 否   | 1.0    | top_p 参数                              |
+| frequency_penalty | number  | 否   | 0.0    | 频率惩罚(-2 到 2)                       |
+| presence_penalty  | number  | 否   | 0.0    | 存在惩罚(-2 到 2)                       |
+| stop              | array   | 否   | null   | 停止词列表                              |
+
+## 会话管理说明
+
+### 获取新会话ID
+
+在开始新对话之前，需要先调用创建新会话接口获取会话ID：
+
+```http
+POST /api/v1/conversations/new
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+
+{
+  "title": "关于AI的讨论"
+}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "message": "创建新会话成功",
+  "data": 123,
+  "timestamp": 1625644800000
+}
+```
+
+### 开始新对话
+
+使用获取到的会话ID开始对话：
+
+```json
+{
+  "id": 4,
+  "conversationId": 123,
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好，这是一个新的对话"
+    }
+  ]
+}
+```
+
+### 继续现有对话
+
+继续现有对话时，同样需要传入会话ID和完整的消息历史：
+
+```json
+{
+  "id": 4,
+  "conversationId": 123,
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant", 
+      "content": "您好！我是AI助手，很高兴为您服务。"
+    },
+    {
+      "role": "user",
+      "content": "你刚才说到哪里了？"
+    }
+  ]
+}
+```
+
+**重要说明：**
+- 所有聊天请求都必须包含 `conversationId` 参数
+- 传入的 `conversationId` 必须是属于当前登录用户的会话
+- 如果会话ID不存在或无权限访问，将返回错误
+- 前端需要维护完整的消息历史，并在每次请求时传入
+- 所有新消息都会自动保存到指定的会话中
 
 ## 计费说明
 

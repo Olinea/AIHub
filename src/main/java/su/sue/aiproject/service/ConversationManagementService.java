@@ -1,5 +1,6 @@
 package su.sue.aiproject.service;
 
+import su.sue.aiproject.domain.Conversations;
 import su.sue.aiproject.domain.dto.ConversationListResponse;
 import su.sue.aiproject.domain.dto.ConversationDetailResponse;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -76,4 +77,12 @@ public interface ConversationManagementService {
      * @return 是否更新成功
      */
     boolean updateConversationTitle(Long conversationId, Long userId, String newTitle);
+
+    /**
+     * 创建新会话
+     *
+     * @param conversation 会话对象
+     * @return 创建的会话对象（包含ID）
+     */
+    Conversations createNewConversation(Conversations conversation);
 }

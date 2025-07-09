@@ -105,6 +105,10 @@ public class AiChatController {
             throw new IllegalArgumentException("模型ID不能为空");
         }
         
+        if (request.getConversationId() == null) {
+            throw new IllegalArgumentException("会话ID不能为空");
+        }
+        
         if (request.getMessages() == null || request.getMessages().isEmpty()) {
             throw new IllegalArgumentException("消息列表不能为空");
         }

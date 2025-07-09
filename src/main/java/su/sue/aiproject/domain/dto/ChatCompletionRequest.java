@@ -16,6 +16,9 @@ public class ChatCompletionRequest {
     @Schema(description = "模型ID", example = "1")
     private Integer id;
     
+    @Schema(description = "会话ID（必填）", example = "123", required = true)
+    private Long conversationId;
+    
     @Schema(description = "消息列表")
     private List<ChatMessage> messages;
     

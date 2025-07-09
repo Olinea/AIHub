@@ -184,4 +184,19 @@ public class ConversationManagementServiceImpl implements ConversationManagement
             throw new RuntimeException("更新对话标题失败", e);
         }
     }
+
+    @Override
+    public Conversations createNewConversation(Conversations conversation) {
+        log.info("创建新会话, userId: {}, title: {}", conversation.getUserId(), conversation.getTitle());
+        try {
+            // 保存会话到数据库
+            conversationsMapper.insert(conversation);
+            log.info("创建新会话成功, conversationId: {}, userId: {}, title: {}", 
+                    conversation.getId(), conversation.getUserId(), conversation.getTitle());
+            return conversation;
+        } catch (Exception e) {
+            log.error("创建新会话失败, userId: {}, title: {}", conversation.getUserId(), conversation.getTitle(), e);
+            throw new RuntimeException("创建新会话失败", e);
+        }
+    }
 }

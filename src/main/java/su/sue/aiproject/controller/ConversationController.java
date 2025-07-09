@@ -11,14 +11,17 @@ import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import su.sue.aiproject.domain.ApiResponse;
+import su.sue.aiproject.domain.Conversations;
 import su.sue.aiproject.domain.dto.ConversationDetailResponse;
 import su.sue.aiproject.domain.dto.ConversationListResponse;
 import su.sue.aiproject.domain.dto.UpdateConversationTitleRequest;
+import su.sue.aiproject.domain.dto.CreateNewConversationRequest;
 import su.sue.aiproject.security.UserPrincipal;
 import su.sue.aiproject.service.ConversationManagementService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -184,6 +187,36 @@ public class ConversationController {
         }
     }
     
+    @PostMapping("/new")
+    @Operation(summary = "创建新会话", description = "创建一个新的空会话并返回会话ID")
+    public ResponseEntity<ApiResponse<Long>> createNewConversation(
+            @RequestBody @Valid CreateNewConversationRequest request,
+            Authentication authentication) {
+        
+        try {
+            Long userId = getUserId(authentication);
+            
+            // 创建新会话
+            Conversations conversation = new Conversations();
+            conversation.setUserId(userId);
+            conversation.setTitle(request.getTitle() != null ? request.getTitle() : "新对话");
+            conversation.setCreatedAt(new Date());
+            
+            // 保存会话
+            conversationManagementService.createNewConversation(conversation);
+            
+            log.info("创建新会话成功: conversationId={}, userId={}, title={}", 
+                    conversation.getId(), userId, conversation.getTitle());
+            
+            return ResponseEntity.ok(ApiResponse.success("创建新会话成功", conversation.getId()));
+            
+        } catch (Exception e) {
+            log.error("创建新会话失败", e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("创建新会话失败: " + e.getMessage()));
+        }
+    }
+
     /**
      * 从认证信息中获取用户ID
      */
