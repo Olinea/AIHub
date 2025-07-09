@@ -90,7 +90,7 @@ public class AiModelTestControllerTest {
 
         mockMvc.perform(post("/api/admin/ai-models/1/test-connection")
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpected(status().isInternalServerError())
+                .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("API连接测试失败（连接错误）"))
                 .andExpect(jsonPath("$.data").exists());
@@ -132,6 +132,6 @@ public class AiModelTestControllerTest {
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpected(jsonPath("$.message").value("API端点未配置"));
+                .andExpect(jsonPath("$.message").value("API端点未配置"));
     }
 }

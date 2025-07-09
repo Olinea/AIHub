@@ -1,5 +1,6 @@
 package su.sue.aiproject.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import su.sue.aiproject.domain.AiModels;
 import su.sue.aiproject.service.AiModelsService;
@@ -19,6 +20,15 @@ public class AiModelsServiceImpl extends ServiceImpl<AiModelsMapper, AiModels>
     public AiModels getModelWithDecryptedKeys(Integer id) {
         // 直接返回模型信息，无需解密
         return this.getById(id);
+    }
+
+    @Override
+    public AiModels getModelByProviderAndName(String provider, String modelName) {
+        QueryWrapper<AiModels> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("provider", provider)
+                   .eq("model_name", modelName)
+                   .eq("is_enabled", true);
+        return this.getOne(queryWrapper);
     }
 
 }

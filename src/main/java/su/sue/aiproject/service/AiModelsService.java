@@ -17,4 +17,11 @@ public interface AiModelsService extends IService<AiModels> {
      */
     AiModels getModelWithDecryptedKeys(Integer id);
 
+    /**
+     * 根据提供商和模型名称获取模型信息
+     * @param provider 提供商名称
+     * @param modelName 模型名称
+     * @return 模型信息
+     */
+    AiModels getModelByProviderAndName(String provider, String modelName);
 }

@@ -1,5 +1,34 @@
 # AI 聚合聊天平台——项目规划文档
 
+## 📋 项目当前状态 (更新于2025年7月9日)
+
+### 🎯 已完成的核心功能
+- ✅ **统一AI聊天接口**: 完全兼容OpenAI格式的 `/api/v1/chat/completions` 接口
+- ✅ **DeepSeek集成**: 支持同步和流式响应的DeepSeek AI模型
+- ✅ **用户认证系统**: JWT基础的登录注册和权限管理
+- ✅ **积分计费系统**: 基于token消耗的自动计费和扣费
+- ✅ **数据库优化**: 应用OpenAI兼容性升级，支持完整消息格式
+
+### 🔧 技术架构现状
+- **后端**: Spring Boot + MyBatis Plus + MySQL
+- **AI服务**: 统一接口架构，当前支持DeepSeek
+- **认证**: JWT Token + Spring Security
+- **数据库**: MySQL 8.0+，已应用OpenAI兼容性升级
+
+### 📁 关键文件
+- `AiChatController.java` - 统一AI聊天接口
+- `DeepSeekChatService.java` - DeepSeek具体实现  
+- `sql/migrate_openai_compatibility_phase1.sql` - 数据库升级脚本
+- `API_Chat_Documentation.md` - 接口使用文档
+
+### 🚀 下一步计划
+- 前端Vue3界面开发
+- 会话管理功能完善
+- 更多AI服务商接入 (OpenAI, Claude等)
+- 对话记录保存和历史管理
+
+---
+
 ## 1. 项目概述
 
 ### 1.1. 项目愿景
@@ -118,26 +147,105 @@
 | `created_at`           | `DATETIME`       | 非空       | 创建时间                                  |
 | `updated_at`           | `DATETIME`       | 非空       | 更新时间                                  |
 
-### 4.3. `conversations` - 会话表
+### 4.3. `conversations` - 会话表 (已升级OpenAI兼容)
 
-| 字段名       | 类型           | 约束             | 描述                                  |
-| :----------- | :------------- | :--------------- | :------------------------------------ |
-| `id`         | `BIGINT`       | 主键, 自增       | 会话唯一标识                          |
-| `user_id`    | `BIGINT`       | 外键 -> users.id | 所属用户                              |
-| `title`      | `VARCHAR(255)` | 非空             | 会话标题 (可取第一次提问的前 30 个字) |
-| `created_at` | `DATETIME`     |                  | 创建时间                              |
+| 字段名         | 类型           | 约束             | 描述                                  |
+| :------------- | :------------- | :--------------- | :------------------------------------ |
+| `id`           | `BIGINT`       | 主键, 自增       | 会话唯一标识                          |
+| `user_id`      | `BIGINT`       | 外键 -> users.id | 所属用户                              |
+| `title`        | `VARCHAR(255)` | 非空             | 会话标题 (可取第一次提问的前 30 个字) |
+| `model_id`     | `INT`          | 可空             | 会话默认使用的模型ID                  |
+| `status`       | `VARCHAR(20)`  | 默认 'active'    | 会话状态 (active/archived/deleted)    |
+| `message_count`| `INT`          | 默认 0           | 会话中消息数量                        |
+| `total_tokens` | `INT`          | 默认 0           | 会话总token消耗                       |
+| `created_at`   | `DATETIME`     |                  | 创建时间                              |
+| `updated_at`   | `DATETIME`     | 自动更新         | 最后更新时间                          |
 
-### 4.4. `messages` - 消息表
+### 4.4. `messages` - 消息表 (已升级OpenAI兼容)
 
-| 字段名            | 类型          | 约束                     | 描述                         |
-| :---------------- | :------------ | :----------------------- | :--------------------------- |
-| `id`              | `BIGINT`      | 主键, 自增               | 消息唯一标识                 |
-| `conversation_id` | `BIGINT`      | 外键 -> conversations.id | 所属会话                     |
-| `role`            | `VARCHAR(10)` | 非空                     | 角色 ('user' 或 'assistant') |
-| `content`         | `TEXT`        | 非空                     | 消息内容                     |
-| `model_id`        | `INT`         | 外键 -> ai_models.id     | 本次交互使用的模型           |
-| `tokens_consumed` | `INT`         |                          | 本次交互消耗的 token 数      |
-| `created_at`      | `DATETIME`    |                          | 创建时间                     |
+| 字段名               | 类型          | 约束                     | 描述                                    |
+| :------------------- | :------------ | :----------------------- | :-------------------------------------- |
+| `id`                 | `BIGINT`      | 主键, 自增               | 消息唯一标识                            |
+| `conversation_id`    | `BIGINT`      | 外键 -> conversations.id | 所属会话                                |
+| `role`               | `VARCHAR(20)` | 非空                     | 角色 (system/user/assistant/tool)       |
+| `content`            | `TEXT`        | 非空                     | 消息内容                                |
+| `name`               | `VARCHAR(100)`| 可空                     | 消息发送者名称 (OpenAI可选字段)          |
+| `model_id`           | `INT`         | 外键 -> ai_models.id     | 本次交互使用的模型                      |
+| `tokens_consumed`    | `INT`         |                          | 本次交互消耗的token数 (向后兼容)        |
+| `prompt_tokens`      | `INT`         | 可空                     | 提示词token数                           |
+| `completion_tokens`  | `INT`         | 可空                     | 完成响应token数                         |
+| `total_tokens`       | `INT`         | 可空                     | 总token数                               |
+| `finish_reason`      | `VARCHAR(20)` | 可空                     | 完成原因 (stop/length/tool_calls等)      |
+| `tool_calls`         | `JSON`        | 可空                     | 工具调用信息 (JSON格式)                 |
+| `tool_call_id`       | `VARCHAR(50)` | 可空                     | 工具调用响应ID                          |
+| `system_fingerprint` | `VARCHAR(100)`| 可空                     | 系统指纹                                |
+| `created_at`         | `DATETIME`    |                          | 创建时间                                |
+
+---
+
+## 4.5. 数据库升级说明 (OpenAI兼容性)
+
+### 升级背景
+为了实现完整的OpenAI API兼容性，我们对原始数据库设计进行了扩展升级。升级采用**向后兼容**的方式，确保现有功能不受影响。
+
+### 已执行的升级内容
+
+#### 基础兼容性升级 (第一阶段)
+✅ **已应用迁移脚本**: `sql/migrate_openai_compatibility_phase1.sql`
+
+**主要改进:**
+1. **Messages表扩展** - 支持OpenAI完整消息格式
+   - 新增 `name`, `finish_reason`, `tool_calls`, `tool_call_id`
+   - 新增精确token统计: `prompt_tokens`, `completion_tokens`, `total_tokens`
+   - 扩展 `role` 字段支持更多角色类型
+   - 新增 `system_fingerprint` 系统指纹字段
+
+2. **Conversations表增强** - 改进会话管理
+   - 新增 `model_id` 会话默认模型
+   - 新增 `status` 会话状态管理
+   - 新增 `message_count`, `total_tokens` 统计字段
+   - 新增 `updated_at` 自动更新时间
+
+3. **性能优化**
+   - 添加必要的数据库索引
+   - 建立外键约束确保数据完整性
+   - 自动更新现有数据的默认值
+
+### 兼容性保证
+
+**向后兼容特性:**
+- ✅ 所有新字段均为可空(nullable)，不影响现有代码
+- ✅ 保留原有字段 `tokens_consumed` 作为兼容字段
+- ✅ 自动数据迁移，为现有记录设置合理默认值
+- ✅ 现有API和服务无需修改即可正常运行
+
+**新功能支持:**
+- ✅ 完整OpenAI消息格式支持
+- ✅ 工具调用(Function Calling)准备
+- ✅ 精确token统计和计费
+- ✅ 会话状态管理
+- ✅ 性能优化的查询索引
+
+### 使用建议
+
+**立即可用:**
+- 现有聊天功能继续正常工作
+- 新的AI对话将自动使用增强格式
+- 精确的token统计改善计费准确性
+
+**推荐迁移:**
+- 逐步将代码迁移到新的增强实体类
+- 利用新的统计字段优化用户体验
+- 为未来工具调用功能做准备
+
+### 后续扩展计划
+
+**第二阶段升级** (可选):
+- 会话个性化设置 (`conversation_settings`表)
+- 多模态附件支持 (`message_attachments`表)
+- 工具调用日志 (`tool_call_logs`表)
+- 用户偏好设置 (`user_preferences`表)
+- API使用统计 (`api_usage_stats`表)
 
 ---
 
@@ -145,26 +253,34 @@
 
 建议分阶段进行，逐步迭代。
 
-### **阶段一：后端基础与核心 API**
+### **阶段一：后端基础与核心 API** ✅ 部分完成
 
-1.  **项目初始化**: 创建 Spring Boot 项目，配置 Maven/Gradle，集成基础依赖。
-2.  **数据库配置**: 连接 MySQL 数据库，使用 Flyway 或 Liquibase 管理数据库版本。
-3.  **实体与表创建**: 创建上述四个核心实体类 (User, AiModel, Conversation, Message) 和对应的数据库表。
-4.  **用户认证 API**:
-    - 实现 `POST /api/auth/register` (注册)
-    - 实现 `POST /api/auth/login` (登录)，成功后返回 JWT。
-    - 配置 Spring Security 保护其他 API。
-5.  **AI 代理服务**:
-    - 创建一个 `AiProxyService`。
-    - **关键**: 实现一个核心方法 `getResponse(userId, modelId, prompt)`。
-    - 此方法内部逻辑：
-      a. 检查用户积分是否足够。
-      b. 从数据库读取 `ai_models` 表获取模型信息（API Endpoint, Key 等）。
-      c. 调用外部 AI 服务商的 API。
-      d. 获取返回结果，计算 token 消耗。
-      e. **扣除用户积分**。
-      f. 将问答记录存入 `conversations` 和 `messages` 表。
-      g. 返回结果给前端。
+1.  ✅ **项目初始化**: 创建 Spring Boot 项目，配置 Maven/Gradle，集成基础依赖。
+2.  ✅ **数据库配置**: 连接 MySQL 数据库，使用 Flyway 或 Liquibase 管理数据库版本。
+3.  ✅ **实体与表创建**: 创建上述四个核心实体类 (User, AiModel, Conversation, Message) 和对应的数据库表。
+    - ✅ **数据库已升级**: 应用OpenAI兼容性迁移，支持完整的聊天格式
+    - ✅ **增强实体类**: 提供 `MessagesEnhanced`, `ConversationsEnhanced` 等新实体
+4.  ✅ **用户认证 API**:
+    - ✅ 实现 `POST /api/auth/register` (注册)
+    - ✅ 实现 `POST /api/auth/login` (登录)，成功后返回 JWT。
+    - ✅ 配置 Spring Security 保护其他 API。
+5.  ✅ **AI 代理服务**:
+    - ✅ 创建统一的 `AiChatService` 接口和管理服务
+    - ✅ 实现DeepSeek集成，支持同步和流式响应
+    - ✅ **关键功能已实现**:
+      - ✅ 检查用户积分是否足够
+      - ✅ 从数据库读取模型信息（API Endpoint, Key 等）
+      - ✅ 调用外部 AI 服务商的 API (DeepSeek)
+      - ✅ 获取返回结果，计算 token 消耗
+      - ✅ **扣除用户积分**
+      - 🔄 将问答记录存入数据库 (基础实现，待完善)
+      - ✅ 返回OpenAI兼容格式结果给前端
+
+**当前状态**: 
+- ✅ 统一AI聊天接口 `/api/v1/chat/completions` 已实现
+- ✅ 支持DeepSeek模型，完全兼容OpenAI格式
+- ✅ 流式响应和计费功能正常工作
+- ✅ 数据库结构已优化，支持未来扩展
 
 ### **阶段二：前端界面开发**
 
@@ -206,6 +322,14 @@
 ---
 
 ## 6. 关键挑战与注意事项
+
+### 🔄 数据库升级相关 (新增)
+
+- **OpenAI兼容性升级**:
+  - ✅ **已完成**: 应用了基础兼容性迁移脚本，数据库现已支持OpenAI完整格式
+  - ✅ **向后兼容**: 所有现有功能继续正常工作，新字段为可选
+  - ⚠️ **建议**: 逐步迁移代码使用新的增强实体类
+  - 📝 **文档**: 详细升级信息请参考 `DATABASE_OPENAI_COMPATIBILITY.md`
 
 - **API Key 安全**:
   - **严禁**将 AI 服务商的 API Key 硬编码在代码或前端。
