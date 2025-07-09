@@ -35,8 +35,8 @@ public interface ConversationsMapper extends BaseMapper<Conversations> {
             COALESCE(c.status, 'active') as status,
             c.model_id as modelId,
             am.model_name as modelName,
-            COALESCE(c.message_count, 0) as messageCount,
-            COALESCE(c.total_tokens, 0) as totalTokens,
+            COALESCE(msg_stats.messageCount, 0) as messageCount,
+            COALESCE(msg_stats.totalTokens, 0) as totalTokens,
             lm.content as lastMessageContent,
             lm.created_at as lastMessageTime,
             c.created_at as createdAt,
@@ -55,6 +55,14 @@ public interface ConversationsMapper extends BaseMapper<Conversations> {
                 GROUP BY conversation_id
             ) m2 ON m1.conversation_id = m2.conversation_id AND m1.created_at = m2.max_created_at
         ) lm ON c.id = lm.conversation_id
+        LEFT JOIN (
+            SELECT 
+                conversation_id,
+                COUNT(*) as messageCount,
+                COALESCE(SUM(COALESCE(total_tokens, tokens_consumed, 0)), 0) as totalTokens
+            FROM messages
+            GROUP BY conversation_id
+        ) msg_stats ON c.id = msg_stats.conversation_id
         WHERE c.user_id = #{userId}
             AND COALESCE(c.status, 'active') != 'deleted'
         ORDER BY COALESCE(lm.created_at, c.created_at) DESC
@@ -71,8 +79,8 @@ public interface ConversationsMapper extends BaseMapper<Conversations> {
             COALESCE(c.status, 'active') as status,
             c.model_id as modelId,
             am.model_name as modelName,
-            COALESCE(c.message_count, 0) as messageCount,
-            COALESCE(c.total_tokens, 0) as totalTokens,
+            COALESCE(msg_stats.messageCount, 0) as messageCount,
+            COALESCE(msg_stats.totalTokens, 0) as totalTokens,
             lm.content as lastMessageContent,
             lm.created_at as lastMessageTime,
             c.created_at as createdAt,
@@ -91,6 +99,14 @@ public interface ConversationsMapper extends BaseMapper<Conversations> {
                 GROUP BY conversation_id
             ) m2 ON m1.conversation_id = m2.conversation_id AND m1.created_at = m2.max_created_at
         ) lm ON c.id = lm.conversation_id
+        LEFT JOIN (
+            SELECT 
+                conversation_id,
+                COUNT(*) as messageCount,
+                COALESCE(SUM(COALESCE(total_tokens, tokens_consumed, 0)), 0) as totalTokens
+            FROM messages
+            GROUP BY conversation_id
+        ) msg_stats ON c.id = msg_stats.conversation_id
         WHERE c.user_id = #{userId}
             AND COALESCE(c.status, 'active') != 'deleted'
         ORDER BY COALESCE(lm.created_at, c.created_at) DESC
@@ -107,12 +123,20 @@ public interface ConversationsMapper extends BaseMapper<Conversations> {
             COALESCE(c.status, 'active') as status,
             c.model_id as modelId,
             am.model_name as modelName,
-            COALESCE(c.message_count, 0) as messageCount,
-            COALESCE(c.total_tokens, 0) as totalTokens,
+            COALESCE(msg_stats.messageCount, 0) as messageCount,
+            COALESCE(msg_stats.totalTokens, 0) as totalTokens,
             c.created_at as createdAt,
             c.updated_at as updatedAt
         FROM conversations c
         LEFT JOIN ai_models am ON c.model_id = am.id
+        LEFT JOIN (
+            SELECT 
+                conversation_id,
+                COUNT(*) as messageCount,
+                COALESCE(SUM(COALESCE(total_tokens, tokens_consumed, 0)), 0) as totalTokens
+            FROM messages
+            GROUP BY conversation_id
+        ) msg_stats ON c.id = msg_stats.conversation_id
         WHERE c.id = #{conversationId} 
             AND c.user_id = #{userId}
             AND COALESCE(c.status, 'active') != 'deleted'
