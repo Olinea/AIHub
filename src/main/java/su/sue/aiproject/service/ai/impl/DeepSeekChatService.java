@@ -398,20 +398,26 @@ public class DeepSeekChatService implements AiChatService {
             // 更新会话的模型ID（如果需要）
             updateConversationModelId(conversationId, model.getId());
             
-            // 2. 保存用户消息
+            // 2. 保存用户消息（只保存最新的用户消息，避免重复保存历史记录）
+            ChatMessage latestUserMessage = null;
             for (ChatMessage message : request.getMessages()) {
                 if ("user".equals(message.getRole())) {
-                    Messages userMessage = new Messages();
-                    userMessage.setConversationId(conversationId);
-                    userMessage.setRole(message.getRole());
-                    userMessage.setContent(message.getContent());
-                    userMessage.setModelId(model.getId().intValue());
-                    userMessage.setTokensConsumed(0); // 用户消息不消耗 token
-                    userMessage.setCreatedAt(new Date());
-                    
-                    messagesService.save(userMessage);
-                    log.debug("保存用户消息: {}", userMessage.getId());
+                    latestUserMessage = message; // 保留最后一条用户消息
                 }
+            }
+            
+            // 只保存最新的用户消息
+            if (latestUserMessage != null) {
+                Messages userMessage = new Messages();
+                userMessage.setConversationId(conversationId);
+                userMessage.setRole(latestUserMessage.getRole());
+                userMessage.setContent(latestUserMessage.getContent());
+                userMessage.setModelId(model.getId().intValue());
+                userMessage.setTokensConsumed(0); // 用户消息不消耗 token
+                userMessage.setCreatedAt(new Date());
+                
+                messagesService.save(userMessage);
+                log.debug("保存最新用户消息: {}", userMessage.getId());
             }
             
             // 3. 保存AI响应
