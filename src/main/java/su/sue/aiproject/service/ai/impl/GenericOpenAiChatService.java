@@ -299,11 +299,102 @@ public class GenericOpenAiChatService implements AiChatService {
     
     private ChatCompletionChunk parseChunk(String jsonData) {
         try {
+            // 首先尝试解析为标准 OpenAI 格式
             return objectMapper.readValue(jsonData, ChatCompletionChunk.class);
         } catch (Exception e) {
-            log.warn("解析chunk失败: {}", jsonData, e);
-            return null;
+            // 如果解析失败，尝试解析为 Ollama 格式
+            try {
+                return parseOllamaChunk(jsonData);
+            } catch (Exception ollamaError) {
+                log.warn("解析chunk失败（尝试了 OpenAI 和 Ollama 格式）: {}", jsonData, e);
+                return null;
+            }
         }
+    }
+    
+    /**
+     * 解析 Ollama 格式的流式响应
+     * Ollama 格式示例：{"model":"qwen3:latest","created_at":"2025-07-10T01:47:50.3865203Z","message":{"role":"assistant","content":"询问"},"done":false}
+     * 注意：Ollama 流式响应中，每个 chunk 包含的是当前增量的内容，而不是累积内容
+     */
+    private ChatCompletionChunk parseOllamaChunk(String jsonData) throws JsonProcessingException {
+        // 解析 Ollama 原始格式
+        com.fasterxml.jackson.databind.JsonNode ollamaNode = objectMapper.readTree(jsonData);
+        
+        // 创建标准 OpenAI 格式的 chunk
+        ChatCompletionChunk chunk = new ChatCompletionChunk();
+        
+        // 设置 ID（如果有的话，否则生成一个）
+        chunk.setId("ollama-" + System.currentTimeMillis());
+        
+        // 设置模型名称
+        if (ollamaNode.has("model")) {
+            chunk.setModel(ollamaNode.get("model").asText());
+        }
+        
+        // 设置时间戳
+        chunk.setCreated(System.currentTimeMillis() / 1000);
+        
+        // 解析消息内容
+        if (ollamaNode.has("message")) {
+            com.fasterxml.jackson.databind.JsonNode messageNode = ollamaNode.get("message");
+            
+            ChatCompletionChoice choice = new ChatCompletionChoice();
+            choice.setIndex(0);
+            
+            // 创建 delta 消息（转换为标准格式）
+            ChatMessage delta = new ChatMessage();
+            
+            if (messageNode.has("role")) {
+                delta.setRole(messageNode.get("role").asText());
+            }
+            
+            if (messageNode.has("content")) {
+                String content = messageNode.get("content").asText();
+                // Ollama 格式中，每个 chunk 的 content 就是增量内容
+                delta.setContent(content);
+                log.debug("Ollama chunk 增量内容: '{}'", content);
+            }
+            
+            choice.setDelta(delta);
+            
+            // 检查是否完成
+            boolean done = ollamaNode.has("done") && ollamaNode.get("done").asBoolean();
+            if (done) {
+                choice.setFinishReason("stop");
+                log.debug("Ollama 流结束标记: done=true");
+            }
+            
+            chunk.setChoices(java.util.Arrays.asList(choice));
+        }
+        
+        // 处理 usage 信息（如果存在，通常在最后一个 chunk 中）
+        if (ollamaNode.has("usage")) {
+            com.fasterxml.jackson.databind.JsonNode usageNode = ollamaNode.get("usage");
+            ChatCompletionUsage usage = new ChatCompletionUsage();
+            
+            if (usageNode.has("prompt_tokens")) {
+                usage.setPromptTokens(usageNode.get("prompt_tokens").asInt());
+            }
+            if (usageNode.has("completion_tokens")) {
+                usage.setCompletionTokens(usageNode.get("completion_tokens").asInt());
+            }
+            if (usageNode.has("total_tokens")) {
+                usage.setTotalTokens(usageNode.get("total_tokens").asInt());
+            } else if (usage.getPromptTokens() != null && usage.getCompletionTokens() != null) {
+                usage.setTotalTokens(usage.getPromptTokens() + usage.getCompletionTokens());
+            }
+            
+            chunk.setUsage(usage);
+            log.debug("Ollama usage 信息: {}", usage);
+        }
+        
+        log.debug("成功解析 Ollama 格式数据: model={}, content='{}'", 
+                chunk.getModel(), 
+                chunk.getChoices() != null && !chunk.getChoices().isEmpty() && chunk.getChoices().get(0).getDelta() != null 
+                    ? chunk.getChoices().get(0).getDelta().getContent() : "null");
+        
+        return chunk;
     }
     
     /**
@@ -511,9 +602,17 @@ public class GenericOpenAiChatService implements AiChatService {
                     // 积累内容用于数据库保存
                     if (chunk.getChoices() != null && !chunk.getChoices().isEmpty()) {
                         ChatCompletionChoice choice = chunk.getChoices().get(0);
+                        
+                        // 处理 delta 内容（兼容 OpenAI 和 Ollama 格式）
                         if (choice.getDelta() != null && choice.getDelta().getContent() != null) {
-                            fullContent.append(choice.getDelta().getContent());
-                            log.debug("拼接内容: {}", choice.getDelta().getContent());
+                            String content = choice.getDelta().getContent();
+                            fullContent.append(content);
+                            log.debug("拼接流式内容: '{}'", content);
+                        }
+                        
+                        // 检查是否是流结束标记
+                        if ("stop".equals(choice.getFinishReason())) {
+                            log.debug("收到流结束标记 (finishReason=stop)");
                         }
                     }
                     
